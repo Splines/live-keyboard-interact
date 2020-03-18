@@ -18,7 +18,7 @@ node_modules/
 .next
 
 # output
-.dist
+dist
 
 # Logs
 npm-debug.log*
