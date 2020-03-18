@@ -1,0 +1,28 @@
+# Configuring the access point host software (hostapd)
+
+# Reference
+# - https://www.raspberrypi.org/documentation/configuration/wireless/access-point.md
+# - https://coderose.io/wifi-ap-with-raspberry-pi-3/
+##########################################################################################
+
+# Interface and Driver
+interface={{ wifiInterface}}
+#driver=nl80211
+
+# WLAN-Configuration
+ssid={{ ssid }}
+hw_mode={{ hwMode }}
+channel={{ channel }}
+country_code={{ countryCode }}
+
+# WLAN-Encryption
+wmm_enabled=0
+macaddr_acl=0
+auth_algs=1
+ignore_broadcast_ssid=0
+wpa=2
+wpa_passphrase={{ passphrase }}
+wpa_key_mgmt=WPA-PSK
+wpa_pairwise=TKIP
+rsn_pairwise=CCMP
+wpa_group_rekey=86400

@@ -1,0 +1,37 @@
+{
+  "name": "init-app",
+  "version": "1.0.0",
+  "description": "Initialization of Access Point on the Rasberry Pi",
+  "main": "Init.js",
+  "scripts": {
+    "start": "node ./dist/src/init.js",
+    "revert": "node ./dist/src/initRevert.js",
+    "provision": "apt update -y && apt install dnsmasq hostapd iw -y",
+    "start:server": "cd .. && cd next-app && npm run start"
+  },
+  "keywords": [
+    "Initialization",
+    "RaspberryPi",
+    "AccessPoint",
+    "Hotspot",
+    "WLAN",
+    "Wifi"
+  ],
+  "author": "Dominic Plein",
+  "license": "ISC",
+  "bugs": {
+    "url": "http://github.com/ordinateur-hack/tyros-reg-sheets/issues"
+  },
+  "homepage": "http://github.com/ordinateur-hack/tyros-reg-sheets",
+  "dependencies": {
+    "async": "^3.1.0",
+    "child_process": "^1.0.2",
+    "fs": "0.0.1-security",
+    "mustache": "^3.2.1"
+  },
+  "devDependencies": {
+    "@types/async": "^3.0.8",
+    "@types/mustache": "^0.8.32",
+    "@types/node": "^13.1.2"
+  }
+}

@@ -1,0 +1,21 @@
+# Configuring the DHCP server (dnsmasq)
+
+# Reference
+# - https://www.raspberrypi.org/documentation/configuration/wireless/access-point.md
+##########################################################################################
+
+# https://www.engetsu-consulting.com/blog/raspberry-pi-raspbian-rogue-access-point-ap-landing-page-captive-portal
+# https://raspberrypi.stackexchange.com/questions/93883/client-connects-to-node-web-server-once-connected-to-raspberry-pi-access-point/106666#106666
+address=/#/{{ ipStatic }}
+
+# DHCP-Server active for WLAN-Interface (usually wlan0)
+interface={{ wifiInterface }}
+
+# DHCP-Server not active for existing network
+no-dhcp-interface=eth0
+
+# IPv4-address range and lease-time
+dhcp-range={{ ipSubnetRangeStart }},{{ ipSubnetRangeEnd }},255.255.255.0,24h
+
+# DNS
+dhcp-option=option:dns-server,{{ ipStatic }}

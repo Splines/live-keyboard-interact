@@ -1,0 +1,15 @@
+# Setting up wirless networking
+
+# Reference
+# - https://www.raspberrypi.org/documentation/configuration/wireless/headless.md
+##########################################################################################
+
+ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
+update_config=1
+country={{ countryCode }}
+
+network={
+	ssid="{{ ssid }}"
+	psk="{{ passphrase }}"
+	key_mgmt=WPA-PSK
+}
