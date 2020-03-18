@@ -17,8 +17,8 @@
         "port": 1234
     },
     "wifi": {
-        "ssid": "Familie Plein/Herzing",
-        "passphrase": "1A1&$B$1=%ileTTe.4/n",
+        "ssid": "YourWifiSSID",
+        "passphrase": "123YourPassword",
         "countryCode": "DE"
     }
 }
