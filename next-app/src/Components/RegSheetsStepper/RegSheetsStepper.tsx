@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Stepper, Step, StepLabel, StepContent, Button, makeStyles, Theme, Typography } from '@material-ui/core';
-import PrepareRgtFilesStep, { FirstStepSwitch } from './PrepareRgtFilesStep';
+import PrepareRgtFilesStep from './PrepareRgtFilesStep';
 import FinishedStep from './FinishedStep';
 
 const useStyles = makeStyles((theme: Theme) => ({
@@ -24,10 +24,10 @@ function getSteps() {
     return ['Prepare .rgt files', 'Upload .pdf files', 'Check out'];
 }
 
-function getStepContent(step: number, firstStepSwitch: FirstStepSwitch, setFirstStepSwitch: any) {
+function getStepContent(step: number) {
     switch (step) {
         case 0:
-            return <PrepareRgtFilesStep firstStepSwitch={firstStepSwitch} setFirstStepSwitch={setFirstStepSwitch} />
+            return <PrepareRgtFilesStep />
         case 1:
             return ('Select your pdf files here');
         case 2:
@@ -42,7 +42,6 @@ export default function RegSheetsStepper() {
     const classes = useStyles();
     const [activeStep, setActiveStep] = useState(0);
     const [skipped, setSkipped] = useState(new Set<number>());
-    const [firstStepSwitch, setFirstStepSwitch] = useState(FirstStepSwitch.Undefined);
     const steps = getSteps();
 
     const isStepOptional = (step: number) => {
@@ -80,7 +79,6 @@ export default function RegSheetsStepper() {
 
     const handleReset = () => {
         setActiveStep(0);
-        setFirstStepSwitch(FirstStepSwitch.Undefined);
     }
 
     return (
@@ -101,7 +99,7 @@ export default function RegSheetsStepper() {
                             <Step key={label} {...stepProps}>
                                 <StepLabel {...labelProps}>{label}</StepLabel>
                                 <StepContent>
-                                    {getStepContent(i, firstStepSwitch, setFirstStepSwitch)}
+                                    {getStepContent(i)}
                                     <div className={classes.actionsContainer}>
                                         <Button
                                             disabled={activeStep === 0}
