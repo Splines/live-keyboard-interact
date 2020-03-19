@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { Stepper, Step, StepLabel, StepContent, Button, makeStyles, Theme, Paper, Typography } from '@material-ui/core';
-import Dropzone from './Dropzone/Dropzone';
-import PlayCircleFilledWhiteIcon from '@material-ui/icons/PlayCircleFilledWhite';
-const classNames = require('classnames');
+import { Stepper, Step, StepLabel, StepContent, Button, makeStyles, Theme, Typography } from '@material-ui/core';
+import PrepareRgtFilesStep, { FirstStepSwitch } from './PrepareRgtFilesStep';
+import FinishedStep from './FinishedStep';
 
 const useStyles = makeStyles((theme: Theme) => ({
     root: {
@@ -12,31 +11,25 @@ const useStyles = makeStyles((theme: Theme) => ({
         marginTop: theme.spacing(1),
         marginRight: theme.spacing(2)
     },
-    startButton: {
-        boxShadow: theme.shadows[12],
-        width: '100%',
-        marginTop: theme.spacing(2),
-        padding: theme.spacing(2),
-        background: `linear-gradient(45deg, ${theme.palette.secondary.light} 30%, #FF8E53 90%)`
-    },
+
     actionsContainer: {
         marginBottom: theme.spacing(2)
-    },
-    resetContainer: {
-        padding: theme.spacing(2)
     }
 }));
 
+//////////////////
+// Step Content //
+//////////////////
 function getSteps() {
     return ['Prepare .rgt files', 'Upload .pdf files', 'Check out'];
 }
 
-function getStepContent(step: number) {
+function getStepContent(step: number, firstStepSwitch: FirstStepSwitch, setFirstStepSwitch: any) {
     switch (step) {
         case 0:
-            return `Select your .rgt files here`;
+            return <PrepareRgtFilesStep firstStepSwitch={firstStepSwitch} setFirstStepSwitch={setFirstStepSwitch} />
         case 1:
-            return (<Dropzone />);
+            return ('Select your pdf files here');
         case 2:
             return `Before you can start, just make sure that the following information is correct:...`;
         default:
@@ -44,10 +37,12 @@ function getStepContent(step: number) {
     }
 }
 
+
 export default function RegSheetsStepper() {
     const classes = useStyles();
     const [activeStep, setActiveStep] = useState(0);
     const [skipped, setSkipped] = useState(new Set<number>());
+    const [firstStepSwitch, setFirstStepSwitch] = useState(FirstStepSwitch.Undefined);
     const steps = getSteps();
 
     const isStepOptional = (step: number) => {
@@ -85,6 +80,7 @@ export default function RegSheetsStepper() {
 
     const handleReset = () => {
         setActiveStep(0);
+        setFirstStepSwitch(FirstStepSwitch.Undefined);
     }
 
     return (
@@ -105,7 +101,7 @@ export default function RegSheetsStepper() {
                             <Step key={label} {...stepProps}>
                                 <StepLabel {...labelProps}>{label}</StepLabel>
                                 <StepContent>
-                                    {getStepContent(i)}
+                                    {getStepContent(i, firstStepSwitch, setFirstStepSwitch)}
                                     <div className={classes.actionsContainer}>
                                         <Button
                                             disabled={activeStep === 0}
@@ -138,24 +134,10 @@ export default function RegSheetsStepper() {
                     })
                 }
             </Stepper>
-            <div>
-                {activeStep === steps.length && (
-                    <Paper elevation={0} className={classes.resetContainer}>
-                        <Typography>Yeah, you're now ready for take-off.</Typography>
-                        <Button
-                            variant="contained"
-                            color="primary"
-                            centerRipple
-                            className={classNames(classes.button, classes.startButton)}
-                            endIcon={<PlayCircleFilledWhiteIcon />}>
-                            Start Reg-Sheets-Viewer
-                        </Button>
-                        <Button onClick={handleReset} className={classes.button}>
-                            Reset
-                        </Button>
-                    </Paper>
-                )}
-            </div>
+            <FinishedStep
+                activeStep={activeStep}
+                stepLength={steps.length}
+                startButtonClick={handleReset} />
         </div>
     );
 };

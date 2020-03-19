@@ -1,10 +1,12 @@
 import React from 'react';
-import { Container, Box, Typography, Divider } from '@material-ui/core';
+import { Container, Box, Typography } from '@material-ui/core';
 import { getLayout as getSiteLayout } from '../src/Layouts/SiteLayout';
 import Link from '../src/Link';
-import RegSheetsStepper from '../src/RegSheetsStepper';
+import RegSheetsStepper from '../src/Components/RegSheetsStepper/RegSheetsStepper';
+
 
 const Index = () => {
+
   return (
     <Container maxWidth="sm">
       <Box my={4}>
@@ -15,7 +17,7 @@ const Index = () => {
         <Link href="/about">
           About this project
         </Link>
-        <Divider style={{ margin: "16px 0" }} />
+   
         <RegSheetsStepper />
 
       </Box>
