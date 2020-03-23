@@ -24,8 +24,11 @@ const RegViewerStarter = () => {
     const startRegViewer = () => {
         console.log('now subscribing to reg change');
         subscribeRegChange((newRegFilename: string) => {
+            console.log('new reg filename: ' + newRegFilename);
             setCurrentReg(newRegFilename);
-            const url = `${config.accessPoint.ipStatic}:${config.server.port}/pdfs/${newRegFilename}.pdf`;
+            // const url = `${config.accessPoint.ipStatic}:${config.server.port}/pdfs/${newRegFilename}`;
+            // development
+            const url = `http://localhost:${config.server.port}/pdfs/${newRegFilename}.pdf`;
             open(encodeURI(url));
         });
         setBackdropOpen(true);
@@ -54,6 +57,7 @@ const RegViewerStarter = () => {
 };
 
 function open(url: string) {
+    console.log('in open');
     const windowProxy = window.open(url, '_blank');
     if (windowProxy) {
         windowProxy.focus();
