@@ -4,6 +4,7 @@ import Dropzone from '../Dropzone';
 import { FileWithRawData, subscribeLinkMidiFilesToReg } from '../../Server/serverApi';
 import SendIcon from '@material-ui/icons/Send';
 import { saveAs } from 'file-saver';
+import { getDataForFiles } from '../../fileUtil';
 
 const useStyles = makeStyles((theme: Theme) => ({
     root: {
@@ -64,7 +65,7 @@ const FilesMapper = () => {
             console.log('There are 0 files. This should never happen!');
             return Promise.resolve();
         }
-        const filesWithData: FileWithRawData[] = await Promise.all(files.map((file: File) => readAsArrayBufferPromise(file)));
+        const filesWithData: FileWithRawData[] = await getDataForFiles(files);
         // Send files to backend and process them
         subscribeLinkMidiFilesToReg(filesWithData, (zippedRegFiles: ArrayBuffer) => {
             // save with FileSaver
@@ -73,7 +74,7 @@ const FilesMapper = () => {
         });
     };
 
-    const processJsonFiles = async() => {
+    const processJsonFiles = () => {
         console.log('tbd');
     };
 
@@ -143,22 +144,5 @@ const FilesMapper = () => {
         </div>
     );
 };
-
-function readAsArrayBufferPromise(file: File): Promise<FileWithRawData> {
-    return new Promise<FileWithRawData>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onerror = () => reject();
-        reader.onload = () => {
-            // this does NOT work --> error unhandled promise exception, why ???
-            // resolve({ ...file, data: reader.result as ArrayBuffer});
-            resolve({
-                name: file.name,
-                lastModified: file.lastModified,
-                data: reader.result as ArrayBuffer
-            });
-        };
-        reader.readAsArrayBuffer(file);
-    });
-}
 
 export default FilesMapper;
