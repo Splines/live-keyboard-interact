@@ -13,14 +13,12 @@ import express from 'express';
 import http from 'http';
 import next from 'next';
 import socketIo from 'socket.io';
-// import fs from 'fs';
-// import path from 'path';
 
 // import { watchYamahaRegistration } from './midiHandler';
 // import { linkMidiToReg } from './RegMidiAssigner';
 import config from '../../../init-app/config.json';
 import { RegIndexMapping, FileWithRawData } from './serverApi';
-import { linkMidiToRegAndMap } from './webSocketsHandler';
+import { linkMidiToRegAndMap, savePdfFilesOnServer } from './webSocketsHandler';
 import { watchRegChanges } from './midiLiveHandler';
 
 const dev = process.env.NODE_ENV !== 'production';
@@ -41,30 +39,24 @@ let regIndexMap: RegIndexMapping[] = [
 ///////////////////////////////////
 // Socket.io server (Websockets) //
 ///////////////////////////////////
-console.log('test');
 require('./serverApi'); // inti socket.io-client to socket.io connection
 io.on('connection', (socket: socketIo.Socket) => {
     // Connect new user
     console.log(`${new Date()} received new connection from socket id ${socket.id}`);
 
-    // === PDFMap
-    // socket.on('putPDFMap', async (pdfs: FileWithRawData[]) => {
-    //     // https://stackoverflow.com/a/54903986
-    //     await fsExtra.emptyDir(path.join(__dirname, '../..', 'public', 'pdfs'));
+    // === Save PDF files on server
+    socket.on('putPDFs', async (pdfFiles: FileWithRawData[]) => {
+        savePdfFilesOnServer(pdfFiles);
+    });
 
-    //     // https://stackoverflow.com/a/56908322
-    //     pdfs.forEach((pdf: FileWithRawData) => {
-    //         const filePath = path.join(__dirname, '../..', 'public', 'pdfs', pdf.name);
-    //         const fileStream = fs.createWriteStream(filePath);
-    //         fileStream.write(pdf.data);
-    //     });
+    // // === Get list of PDF filenames
+    // socket.on('subscribePdfFilenames', () => {
+    //     getPdfFilenamesOnServer(socket);
     // });
 
     // === Link Midi Files to Registration Memory Files
     socket.on('subscribeLinkMidiToReg', async (regFiles: FileWithRawData[]) => {
-        linkMidiToRegAndMap(socket, regFiles).then((newRegIndexMap: RegIndexMapping[]) => {
-            regIndexMap = newRegIndexMap;
-        });
+        regIndexMap = await linkMidiToRegAndMap(socket, regFiles);
     });
 
     // === RegChange
