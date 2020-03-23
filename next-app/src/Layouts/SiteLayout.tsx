@@ -27,7 +27,7 @@ const SiteLayout: React.FC<{ children: NextComponentType }> = ({ children }) => 
             <AppBar position="sticky" className={classes.appBar}>
                 <Toolbar>
                     <Typography variant="h5">
-                        CodingConcert
+                        Live-Keyboard-Interact
                     </Typography>
                 </Toolbar>
             </AppBar>
