@@ -3,6 +3,7 @@ import { Container, Box, Typography } from '@material-ui/core';
 import { getLayout as getSiteLayout } from '../src/Layouts/SiteLayout';
 import Link from '../src/Link';
 import RegSheetsExpansionPanels from '../src/Components/RegSheetsExpansionPanels/RegSheetsExpansionPanels';
+import RegViewerStarter from '../src/Components/RegViewerStarter';
 
 const Index = () => {
 
@@ -18,6 +19,8 @@ const Index = () => {
         </Link>
 
         <RegSheetsExpansionPanels />
+        <RegViewerStarter />
+        
       </Box>
     </Container>
   );
