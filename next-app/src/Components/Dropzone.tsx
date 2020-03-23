@@ -1,11 +1,8 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Paper, makeStyles, ListItem, List, ListItemText, ListItemSecondaryAction, IconButton, Theme, Button } from '@material-ui/core';
+import { Paper, makeStyles, ListItem, List, ListItemText, ListItemSecondaryAction, IconButton, Theme } from '@material-ui/core';
 import DeleteIcon from '@material-ui/icons/Delete';
-import SendIcon from '@material-ui/icons/Send';
 const classNames = require('classnames');
-import { FileWithRawData, subscribeLinkMidiFilesToReg } from '../Server/serverApi';
-import { saveAs } from 'file-saver';
 
 const useStyles = makeStyles((theme: Theme) => ({
     fileList: {
@@ -38,33 +35,29 @@ const useStyles = makeStyles((theme: Theme) => ({
     },
     rejectDropzone: {
         borderColor: '#ff1744'
-    },
-    // button: {
-    //     background: `linear-gradient(45deg, ${theme.palette.primary.main} 30%, ${theme.palette.primary.light} 100%)`
-    // }
+    }
 }));
+
+interface addFilesCallback {
+    (newFiles: File[]): void;
+}
+
+interface deleteFileCallback {
+    (oldFile: number): void;
+}
 
 type DropzoneProps = {
     fileFormat: string,
     fileFormatText: string,
+    files: File[],
+    addFiles: addFilesCallback,
+    deleteFile: deleteFileCallback,
+    elementsBelow: React.ReactElement | false,
+    multiple: boolean
 }
 
-const Dropzone = ({ fileFormat, fileFormatText }: DropzoneProps) => {
-    const [files, setFiles] = useState<File[]>([]);
+const Dropzone = ({ fileFormat, fileFormatText, files, addFiles, deleteFile, elementsBelow, multiple }: DropzoneProps) => {
     const classes = useStyles();
-
-    //////////////
-    // Dropzone //
-    //////////////
-    const addFiles = (newFiles: File[]) => {
-        setFiles(oldFiles => [...oldFiles, ...newFiles]);
-    };
-
-    const deleteFile = (i: number) => {
-        const temp = [...files];
-        temp.splice(i, 1);
-        setFiles(temp);
-    };
 
     const onDropAccepted = useCallback((acceptedFiles: File[]) => {
         addFiles(acceptedFiles);
@@ -76,7 +69,7 @@ const Dropzone = ({ fileFormat, fileFormatText }: DropzoneProps) => {
         isDragActive,
         isDragAccept,
         isDragReject
-    } = useDropzone({ onDropAccepted, accept: `${fileFormat}` });
+    } = useDropzone({ onDropAccepted, accept: `${fileFormat}`, multiple: multiple });
 
     const dropzoneClasses = classNames(classes.basicDropzone, {
         [classes.activeDropzone]: isDragAccept,
@@ -94,20 +87,6 @@ const Dropzone = ({ fileFormat, fileFormatText }: DropzoneProps) => {
     } else {
         dropzoneText = <p>Drag 'n' drop some files here, or click to select files</p>;
     }
-
-    ///////////////////
-    // Submit Button //
-    ///////////////////
-    const processRegFiles = async () => {
-        const filesWithData: FileWithRawData[] = await Promise.all(files.map((file: File) => readAsArrayBufferPromise(file)));
-        // Send files to backend and process them
-        subscribeLinkMidiFilesToReg(filesWithData, (zippedRegFiles: ArrayBuffer) => {
-            // save with FileSaver
-            // other option: https://stackoverflow.com/a/19328891
-            saveAs(new Blob([zippedRegFiles]), 'Live-Keyboard-Interact.zip');
-        });
-    };
-
 
     return (
         <>
@@ -133,32 +112,9 @@ const Dropzone = ({ fileFormat, fileFormatText }: DropzoneProps) => {
                         </List>
                 }
             </Paper>
-            <Button
-                variant="contained"
-                endIcon={<SendIcon />}
-                color="primary"
-                onClick={processRegFiles}
-            >
-                Link Reg
-            </Button>
+            {elementsBelow}
         </>
     );
 };
-
-function readAsArrayBufferPromise(file: File): Promise<FileWithRawData> {
-    return new Promise<FileWithRawData>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onerror = () => reject();
-        reader.onload = () => {
-            // resolve({ ...file, data: reader.result as ArrayBuffer});
-            resolve({
-                name: file.name,
-                lastModified: file.lastModified,
-                data: reader.result as ArrayBuffer
-            });
-        };
-        reader.readAsArrayBuffer(file);
-    });
-}
 
 export default Dropzone;

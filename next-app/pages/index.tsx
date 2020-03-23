@@ -2,8 +2,7 @@ import React from 'react';
 import { Container, Box, Typography } from '@material-ui/core';
 import { getLayout as getSiteLayout } from '../src/Layouts/SiteLayout';
 import Link from '../src/Link';
-import RegSheetsStepper from '../src/Components/RegSheetsStepper/RegSheetsStepper';
-
+import RegSheetsExpansionPanels from '../src/Components/RegSheetsExpansionPanels/RegSheetsExpansionPanels';
 
 const Index = () => {
 
@@ -17,9 +16,8 @@ const Index = () => {
         <Link href="/about">
           About this project
         </Link>
-   
-        <RegSheetsStepper />
 
+        <RegSheetsExpansionPanels />
       </Box>
     </Container>
   );
