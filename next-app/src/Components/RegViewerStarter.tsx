@@ -3,6 +3,7 @@ import { Paper, makeStyles, Theme, Fab } from "@material-ui/core";
 import PlayCircleFilledWhiteIcon from '@material-ui/icons/PlayCircleFilledWhite';
 import { subscribeRegChange } from '../Server/serverApi';
 import RegViewerBackdrop from './RegViewerBackdrop';
+import config from '../../../init-app/config.json';
 
 const useStyle = makeStyles((theme: Theme) => ({
     center: {
@@ -22,8 +23,10 @@ const RegViewerStarter = () => {
 
     const startRegViewer = () => {
         console.log('now subscribing to reg change');
-        subscribeRegChange((regFileName: string) => {
-            setCurrentReg(regFileName);
+        subscribeRegChange((newRegFilename: string) => {
+            setCurrentReg(newRegFilename);
+            const url = `${config.accessPoint.ipStatic}:${config.server.port}/pdfs/${newRegFilename}.pdf`;
+            open(encodeURI(url));
         });
         setBackdropOpen(true);
     };
@@ -49,5 +52,12 @@ const RegViewerStarter = () => {
         </Paper>
     );
 };
+
+function open(url: string) {
+    const windowProxy = window.open(url, '_blank');
+    if (windowProxy) {
+        windowProxy.focus();
+    }
+}
 
 export default RegViewerStarter;
