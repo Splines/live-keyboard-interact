@@ -1,7 +1,11 @@
-import React, {useState} from 'react';
+import React, { useState } from 'react';
 import Dropzone from '../Dropzone';
-import { Button, makeStyles, Theme } from "@material-ui/core";
+import { Button, makeStyles, Theme, CircularProgress, Typography, Divider } from "@material-ui/core";
 import SendIcon from '@material-ui/icons/Send';
+import { putPdfs, FileWithRawData } from '../../Server/serverApi';
+import { getDataForFiles } from '../../fileUtil';
+import FileList from '../FileList';
+import useSWR from 'swr';
 
 const useStyles = makeStyles((theme: Theme) => ({
     uploadButton: {
@@ -9,6 +13,23 @@ const useStyles = makeStyles((theme: Theme) => ({
         marginTop: theme.spacing(2)
     }
 }));
+
+const fetcher = (url: string) => fetch(url).then((r: Response) => r.json());
+
+// https://github.com/zeit/swr#quick-start
+const PdfList = () => {
+    const { data, error } = useSWR('/api/pdfs', fetcher);
+
+    const handleDelete = (filename: string) => {
+        console.log('will delete: ' + filename);
+        // TODO: Implement logic here
+    };
+    
+    if (error) return <Typography>Failed to load list of PDF filenames...</Typography>;
+    if (!data) return <CircularProgress />;
+    return <FileList fileNames={data.pdfFiles} deleteFile={handleDelete} />
+};
+
 
 const MusicSheetsUploader = () => {
     const classes = useStyles();
@@ -24,8 +45,9 @@ const MusicSheetsUploader = () => {
         setFiles(temp);
     };
 
-    const processPdfFiles = async() => {
-        console.log('tbd');
+    const processPdfFiles = async () => {
+        const filesWithData: FileWithRawData[] = await getDataForFiles(files);
+        putPdfs(filesWithData);
     };
 
     const pdfUploadButton: React.ReactElement =
@@ -40,15 +62,19 @@ const MusicSheetsUploader = () => {
         </Button>;
 
     return (
-        <Dropzone
-            fileFormat="application/pdf"
-            fileFormatText=".pdf"
-            files={files}
-            addFiles={addFiles}
-            deleteFile={deleteFile}
-            elementsBelow={files.length >= 1 && pdfUploadButton}
-            multiple={true}
-        />
+        <>
+            <PdfList />
+            <Divider style={{ margin: "20px" }} />
+            <Dropzone
+                fileFormat="application/pdf"
+                fileFormatText=".pdf"
+                files={files}
+                addFiles={addFiles}
+                deleteFile={deleteFile}
+                elementsBelow={files.length >= 1 && pdfUploadButton}
+                multiple={true}
+            />
+        </>
     );
 };
 
