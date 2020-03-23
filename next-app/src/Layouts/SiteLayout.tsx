@@ -24,7 +24,7 @@ const SiteLayout: React.FC<{ children: NextComponentType }> = ({ children }) => 
     return (
         <div className={classes.root}>
 
-            <AppBar position="static" className={classes.appBar}>
+            <AppBar position="sticky" className={classes.appBar}>
                 <Toolbar>
                     <Typography variant="h5">
                         CodingConcert
@@ -34,7 +34,7 @@ const SiteLayout: React.FC<{ children: NextComponentType }> = ({ children }) => 
 
             <div>{children}</div>
 
-            <Footer  />
+            <Footer />
 
         </div>
     );
