@@ -50,6 +50,7 @@ const MusicSheetsUploader = () => {
     };
 
     const processPdfFiles = async () => {
+        setFiles([]);
         const filesWithData: FileWithRawData[] = await getFilesWithArrayBufferData(files);
         postPdfs(filesWithData);
         // const newFilenames = filesWithData.map((file: FileWithRawData) => file.name);

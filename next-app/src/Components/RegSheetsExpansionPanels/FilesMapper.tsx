@@ -83,6 +83,7 @@ const FilesMapper = () => {
     };
 
     const processRegFiles = async () => {
+        setFiles([]);
         if (files.length === 0) {
             // !!! should never happen because the Dropzone only shows the button when at least one file is uploaded
             console.log('There are 0 files. This should never happen!');
@@ -98,6 +99,7 @@ const FilesMapper = () => {
     };
 
     const processJsonFiles = async () => {
+        setFiles([]);
         if (files.length === 0) {
             // !!! should never happen because the Dropzone only shows the button when at least one file is uploaded
             console.log('There are 0 files. This should never happen!');
