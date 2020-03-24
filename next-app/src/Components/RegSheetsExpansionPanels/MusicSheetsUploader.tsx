@@ -6,7 +6,7 @@ import { postPdfs } from '../../Server/serverApi';
 import { getFilesWithArrayBufferData, FileWithRawData } from '../../fileUtil';
 import FileList from '../FileList';
 import useSWR from 'swr';
-import { PdfFilenamesResponseData } from '../../../pages/api/pdfs';
+import { PdfFilenamesResponseData } from '../../Server/server';
 
 const useStyles = makeStyles((theme: Theme) => ({
     uploadButton: {

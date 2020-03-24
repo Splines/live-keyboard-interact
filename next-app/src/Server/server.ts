@@ -13,6 +13,8 @@ import express from 'express';
 import http from 'http';
 import next from 'next';
 import socketIo from 'socket.io';
+import path from 'path';
+import fs from 'fs';
 
 // import { watchYamahaRegistration } from './midiHandler';
 // import { linkMidiToReg } from './RegMidiAssigner';
@@ -28,6 +30,10 @@ const expressApp = express();
 const nextHandler = nextApp.getRequestHandler();
 const httpServer = http.createServer(expressApp);
 const io = socketIo(httpServer);
+
+export const publicFolderFilePath: string = process.env.NODE_ENV === 'production'
+    ? path.join(__dirname + '../../../..', 'public') // additional .. to go out of .dist folder
+    : path.join(__dirname + '../../..', 'public');
 
 let regIndexMap: RegIndexMapping[] = [
     // default
@@ -72,7 +78,42 @@ io.on('connection', (socket: socketIo.Socket) => {
 //////////////////////////////////
 // Next.js + Express (Frontend) //
 //////////////////////////////////
+export type PdfFilenamesResponseData = {
+    pdfFilenames: string[]
+};
+
+export type RegIndexMapResponseData = {
+    regIndexMap: RegIndexMapping[]
+};
+
 nextApp.prepare().then(() => {
+    expressApp.get('/api/pdfs', (_req, res: express.Response<PdfFilenamesResponseData>) => {
+        const pdfDirPath: string = path.join(publicFolderFilePath, 'pdfs');
+        fs.readdir(pdfDirPath, (err, files) => {
+            if (err) {
+                console.log('Unable to scan directory: ' + err);
+                return res.status(500);
+                // return res.status(500).json({ status: "error", message: "Unable to scan directory - " + err });
+            }
+            return res.status(200).json({ pdfFilenames: files });
+        });
+    });
+
+    expressApp.get('/api/map', (_req, res: express.Response<RegIndexMapResponseData>) => {
+        const regIndexMapPath: string = path.join(publicFolderFilePath, 'RegIndexMap.json');
+        if (!fs.existsSync(regIndexMapPath)) {
+            return res.status(200).json({ regIndexMap: [] });
+        } else {
+            fs.readFile(regIndexMapPath, (err, data: Buffer) => {
+                if (err) {
+                    return res.status(500);
+                    // return res.status(500).json({ status: "error", message: "Unable to read file - " + err });
+                }
+                return res.status(200).json({ regIndexMap: JSON.parse(data.toString()) });
+            });
+        }
+    });
+
     expressApp.get('/regIndexMap', (_req, res) => {
         res.json(regIndexMap);
     });
@@ -87,7 +128,10 @@ nextApp.prepare().then(() => {
     });
 
     httpServer.listen(`${config.server.port}`, () => {
-        console.log(`listening on ${config.accessPoint.ipStatic}:${config.server.port}/`);
-        // console.log(`listening on localhost:${config.server.port}/`);
+        if (process.env.NODE_ENV === 'production') {
+            console.log(`listening on ${config.accessPoint.ipStatic}:${config.server.port}/`);
+        } else {
+            console.log(`listening on localhost:${config.server.port}/`);
+        }
     });
 });

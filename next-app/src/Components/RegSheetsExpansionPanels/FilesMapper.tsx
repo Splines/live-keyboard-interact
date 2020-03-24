@@ -6,7 +6,7 @@ import SendIcon from '@material-ui/icons/Send';
 import { saveAs } from 'file-saver';
 import { getFilesWithTextData, FileWithTextData, FileWithRawData, getFilesWithArrayBufferData } from '../../fileUtil';
 import RegIndexMapTable from '../RegIndexMapTable';
-import { RegIndexMapResponseData } from '../../../pages/api/map';
+import { RegIndexMapResponseData } from '../../Server/server';
 import useSWR from 'swr';
 
 const useStyles = makeStyles((theme: Theme) => ({
