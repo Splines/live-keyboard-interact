@@ -2,9 +2,8 @@ import io from 'socket.io-client';
 import config from '../../../init-app/config.json';
 import { FileWithRawData } from '../fileUtil';
 
-const socket: SocketIOClient.Socket = io(`ws://${config.accessPoint.ipStatic}:${config.server.port}/`, { transports: ['polling'] });
-// only for development
-// const socket: SocketIOClient.Socket = io(`ws://localhost:${config.server.port}/`, { transports: ['polling'] });
+const socketIp: string = process.env.NODE_ENV === 'production' ? config.accessPoint.ipStatic : 'localhost';
+const socket: SocketIOClient.Socket = io(`ws://${socketIp}:${config.server.port}/`, { transports: ['polling'] });
 
 ////////////
 // RegMap //

@@ -26,9 +26,8 @@ const RegViewerStarter = () => {
         subscribeRegChange((newRegFilename: string) => {
             console.log('new reg filename: ' + newRegFilename);
             setCurrentReg(newRegFilename);
-            const url = `${config.accessPoint.ipStatic}:${config.server.port}/pdfs/${newRegFilename}`;
-            // development
-            // const url = `http://localhost:${config.server.port}/pdfs/${newRegFilename}.pdf`;
+            const socketIp: string = process.env.NODE_ENV === 'production' ? config.accessPoint.ipStatic : 'localhost';
+            const url = `${socketIp}:${config.server.port}/pdfs/${newRegFilename}`;
             open(encodeURI(url));
         });
         setBackdropOpen(true);

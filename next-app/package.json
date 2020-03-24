@@ -21,7 +21,7 @@
     "ts-node": "^8.6.2"
   },
   "scripts": {
-    "dev": "ts-node --project tsconfig.server.json src/Server/server.ts",
+    "dev": "NODE_ENV=development ts-node --project tsconfig.server.json src/Server/server.ts",
     "build:server": "tsc --project tsconfig.server.json",
     "build:next": "next build",
     "build": "npm run build:next && npm run build:server",
