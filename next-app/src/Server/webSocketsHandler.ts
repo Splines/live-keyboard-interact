@@ -1,6 +1,6 @@
 import JSZip from 'jszip';
 import fs from 'fs';
-import fsExtra from 'fs-extra';
+// import fsExtra from 'fs-extra';
 import path from 'path';
 import { linkMidiDummyToReg } from './YamahaApi/regMidiAssigner';
 import { RegIndexMapping, FileWithRawData } from './serverApi';
@@ -37,10 +37,10 @@ export async function linkMidiToRegAndMap(socket: SocketIO.Socket, regFiles: Fil
     return regIndexMap;
 }
 
-export async function savePdfFilesOnServer(pdfFiles: FileWithRawData[]) {
-    console.log(pdfFiles);
+export async function addPdfFilesToServer(pdfFiles: FileWithRawData[]) {
+    console.log("pdf files to post: " + pdfFiles);
     https://stackoverflow.com/a/54903986
-    await fsExtra.emptyDir(path.join(__dirname, '../../', 'public', 'pdfs'));
+    // await fsExtra.emptyDir(path.join(__dirname, '../../', 'public', 'pdfs'));
 
     // https://stackoverflow.com/a/56908322
     pdfFiles.forEach((pdfFile: FileWithRawData) => {
@@ -49,12 +49,3 @@ export async function savePdfFilesOnServer(pdfFiles: FileWithRawData[]) {
         fileStream.write(pdfFile.data);
     });
 }
-
-/**
- * Returns a list of the pdfs on the server
- * @param socket
- */
-// export async function getPdfFilenamesOnServer(socket: SocketIO.Socket) {
-//     const pdfFilenames: string[] = ['test1.pdf', 'test2.pdf'];
-//     socket.emit('pdfFilenames', pdfFilenames);
-// }

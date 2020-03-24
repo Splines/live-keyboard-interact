@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import Dropzone from '../Dropzone';
 import { Button, makeStyles, Theme, CircularProgress, Typography, Divider } from "@material-ui/core";
 import SendIcon from '@material-ui/icons/Send';
-import { putPdfs, FileWithRawData } from '../../Server/serverApi';
+import { postPdfs, FileWithRawData } from '../../Server/serverApi';
 import { getDataForFiles } from '../../fileUtil';
 import FileList from '../FileList';
 import useSWR from 'swr';
+import { PdfFilenamesResponseData } from '../../../pages/api/pdfs';
 
 const useStyles = makeStyles((theme: Theme) => ({
     uploadButton: {
@@ -17,23 +18,27 @@ const useStyles = makeStyles((theme: Theme) => ({
 const fetcher = (url: string) => fetch(url).then((r: Response) => r.json());
 
 // https://github.com/zeit/swr#quick-start
-const PdfList = () => {
-    const { data, error } = useSWR('/api/pdfs', fetcher);
-
+const PdfList = ({ data, error }: useSwrPdfFilenamesProps) => {
     const handleDelete = (filename: string) => {
         console.log('will delete: ' + filename);
         // TODO: Implement logic here
     };
-    
     if (error) return <Typography>Failed to load list of PDF filenames...</Typography>;
     if (!data) return <CircularProgress />;
-    return <FileList fileNames={data.pdfFiles} deleteFile={handleDelete} />
+    return <FileList filenames={data.pdfFilenames} deleteFile={handleDelete} />
 };
 
+type useSwrPdfFilenamesProps = {
+    data?: PdfFilenamesResponseData,
+    error?: any
+}
 
 const MusicSheetsUploader = () => {
     const classes = useStyles();
     const [files, setFiles] = useState<File[]>([]);
+    const { data, error }: useSwrPdfFilenamesProps = useSWR('/api/pdfs', fetcher, {
+        refreshInterval: 3000
+    });
 
     const addFiles = (newFiles: File[]) => {
         setFiles(oldFiles => [...oldFiles, ...newFiles]);
@@ -47,7 +52,10 @@ const MusicSheetsUploader = () => {
 
     const processPdfFiles = async () => {
         const filesWithData: FileWithRawData[] = await getDataForFiles(files);
-        putPdfs(filesWithData);
+        postPdfs(filesWithData);
+        // const newFilenames = filesWithData.map((file: FileWithRawData) => file.name);
+        // const allFilenames = data ? [data.pdfFilenames, newFilenames] : newFilenames;
+        // mutate('/api/pdfs', { ...data, pdfFilenames: allFilenames });
     };
 
     const pdfUploadButton: React.ReactElement =
@@ -63,7 +71,7 @@ const MusicSheetsUploader = () => {
 
     return (
         <>
-            <PdfList />
+            <PdfList data={data} error={error} />
             <Divider style={{ margin: "20px" }} />
             <Dropzone
                 fileFormat="application/pdf"

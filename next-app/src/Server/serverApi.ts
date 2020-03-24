@@ -31,18 +31,9 @@ export function subscribeLinkMidiFilesToReg(regFiles: FileWithRawData[], callbac
 /////////
 // PDF //
 /////////
-export async function putPdfs(pdfFiles: FileWithRawData[]) {
-    socket.emit('putPDFs', pdfFiles);
+export async function postPdfs(pdfFiles: FileWithRawData[]) {
+    socket.emit('postPDFs', pdfFiles);
 }
-
-// interface PdfFilenamesCallback {
-//     (pdfFilenames: string): void;
-// }
-
-// export async function getPdfFilenames(callback: PdfFilenamesCallback) {
-//     socket.on('pdfFilenames', (pdfFilenames: string) => callback(pdfFilenames));
-//     socket.emit('subscribePdfFilenames');
-// }
 
 ///////////////
 // RegChange //

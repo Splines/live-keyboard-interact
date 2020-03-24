@@ -18,7 +18,7 @@ import socketIo from 'socket.io';
 // import { linkMidiToReg } from './RegMidiAssigner';
 import config from '../../../init-app/config.json';
 import { RegIndexMapping, FileWithRawData } from './serverApi';
-import { linkMidiToRegAndMap, savePdfFilesOnServer } from './webSocketsHandler';
+import { linkMidiToRegAndMap, addPdfFilesToServer } from './webSocketsHandler';
 import { watchRegChanges } from './midiLiveHandler';
 
 const dev = process.env.NODE_ENV !== 'production';
@@ -45,14 +45,9 @@ io.on('connection', (socket: socketIo.Socket) => {
     console.log(`${new Date()} received new connection from socket id ${socket.id}`);
 
     // === Save PDF files on server
-    socket.on('putPDFs', async (pdfFiles: FileWithRawData[]) => {
-        savePdfFilesOnServer(pdfFiles);
+    socket.on('postPDFs', async (pdfFiles: FileWithRawData[]) => {
+        addPdfFilesToServer(pdfFiles);
     });
-
-    // // === Get list of PDF filenames
-    // socket.on('subscribePdfFilenames', () => {
-    //     getPdfFilenamesOnServer(socket);
-    // });
 
     // === Link Midi Files to Registration Memory Files
     socket.on('subscribeLinkMidiToReg', async (regFiles: FileWithRawData[]) => {

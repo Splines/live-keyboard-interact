@@ -7,32 +7,49 @@ interface DeleteFileCallback {
 }
 
 type FileListProps = {
-    fileNames: string[];
+    filenames: string | string[];
     deleteFile: DeleteFileCallback;
 }
 
-export default ({ fileNames, deleteFile }: FileListProps) => {
+export default ({ filenames: filenames, deleteFile }: FileListProps) => {
     let listItems;
-    if (!fileNames) {
+    if (!filenames) {
         listItems =
             <ListItem>
                 <ListItemText primary="No PDF files uploaded yet..." />
             </ListItem>
     } else {
-        listItems = fileNames.map((filename: string) => (
-            <ListItem key={filename}>
-                <ListItemText primary={filename} />
-                <ListItemSecondaryAction>
-                    <IconButton
-                        edge="end"
-                        aria-label="delete"
-                        onClick={() => deleteFile(filename)}
-                    >
-                        <DeleteIcon />
-                    </IconButton>
-                </ListItemSecondaryAction>
-            </ListItem>
-        ));
+        if (typeof filenames === "string") {
+            const filename: string = filenames;
+            listItems =
+                <ListItem key={filename}>
+                    <ListItemText primary={filename} />
+                    <ListItemSecondaryAction>
+                        <IconButton
+                            edge="end"
+                            aria-label="delete"
+                            onClick={() => deleteFile(filename)}
+                        >
+                            <DeleteIcon />
+                        </IconButton>
+                    </ListItemSecondaryAction>
+                </ListItem>;
+        } else {
+            listItems = (filenames as string[]).map((filename: string) => (
+                <ListItem key={filename}>
+                    <ListItemText primary={filename} />
+                    <ListItemSecondaryAction>
+                        <IconButton
+                            edge="end"
+                            aria-label="delete"
+                            onClick={() => deleteFile(filename)}
+                        >
+                            <DeleteIcon />
+                        </IconButton>
+                    </ListItemSecondaryAction>
+                </ListItem>
+            ));
+        }
     }
 
     return (
