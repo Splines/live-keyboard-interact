@@ -21,7 +21,7 @@ import fs from 'fs';
 import config from '../../../init-app/config.json';
 import { RegIndexMapping } from './serverApi';
 import { FileWithRawData } from '../fileUtil';
-import { linkMidiToRegAndMap, addPdfFilesToServer, saveRegIndexMap } from './webSocketsHandler';
+import { linkMidiToRegAndMap, addPdfFilesToServer } from './webSocketsHandler';
 import { watchRegChanges } from './midiLiveHandler';
 
 const dev = process.env.NODE_ENV !== 'production';
@@ -38,7 +38,7 @@ export const staticLiveFilesFolderPath: string = process.env.NODE_ENV === 'produ
 let regIndexMap: RegIndexMapping[] = [
     // default
     {
-        regName: 'Test.RGT',
+        regName: 'SampleRegistration',
         midiIndex: 0
     }
 ];
@@ -58,12 +58,12 @@ io.on('connection', (socket: socketIo.Socket) => {
 
     // === Save JSON RegIndexMap on server
     socket.on('postMap', (regIndexMap: RegIndexMapping[]) => {
-        saveRegIndexMap(regIndexMap);
+        regIndexMap = regIndexMap;
     });
 
     // === Link Midi Files to Registration Memory Files
-    socket.on('subscribeLinkMidiToReg', (regFiles: FileWithRawData[]) => {
-        linkMidiToRegAndMap(socket, regFiles);
+    socket.on('subscribeLinkMidiToReg', async (regFiles: FileWithRawData[]) => {
+        regIndexMap = await linkMidiToRegAndMap(socket, regFiles);
     });
 
     // === RegChange
@@ -103,18 +103,7 @@ nextApp.prepare().then(() => {
     });
 
     expressApp.get('/api/map', (_req, res: express.Response<RegIndexMapResponseData>) => {
-        const regIndexMapPath: string = path.join(staticLiveFilesFolderPath, 'RegIndexMap.json');
-        if (!fs.existsSync(regIndexMapPath)) {
-            return res.status(200).json({ regIndexMap: [] });
-        } else {
-            fs.readFile(regIndexMapPath, (err, data: Buffer) => {
-                if (err) {
-                    return res.status(500);
-                    // return res.status(500).json({ status: "error", message: "Unable to read file - " + err });
-                }
-                return res.status(200).json({ regIndexMap: JSON.parse(data.toString()) });
-            });
-        }
+        res.status(200).json({ regIndexMap: regIndexMap });
     });
 
     expressApp.get('/regIndexMap', (_req, res) => {

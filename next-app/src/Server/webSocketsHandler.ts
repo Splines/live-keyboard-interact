@@ -36,7 +36,6 @@ export async function linkMidiToRegAndMap(socket: SocketIO.Socket, regFiles: Fil
     }
     zippedRegFiles.file('RegIndexMap.json', JSON.stringify(regIndexMap));
     socket.emit('linkedMidiToReg', await zippedRegFiles.generateAsync({ type: "nodebuffer" }));
-    saveRegIndexMap(regIndexMap);
     return regIndexMap;
 }
 
@@ -52,10 +51,10 @@ export async function addPdfFilesToServer(pdfFiles: FileWithRawData[]) {
     });
 }
 
-export async function saveRegIndexMap(regIndexMap: RegIndexMapping[]) {
-    fs.writeFile(path.join(staticLiveFilesFolderPath, 'RegIndexMap.json'), JSON.stringify(regIndexMap), (err) => {
-        if (err) {
-            console.error(err);
-        }
-    });
-}
+// export async function saveRegIndexMap(regIndexMap: RegIndexMapping[]) {
+//     fs.writeFile(path.join(staticLiveFilesFolderPath, 'RegIndexMap.json'), JSON.stringify(regIndexMap), (err) => {
+//         if (err) {
+//             console.error(err);
+//         }
+//     });
+// }
