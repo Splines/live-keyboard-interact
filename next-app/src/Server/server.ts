@@ -31,9 +31,9 @@ const nextHandler = nextApp.getRequestHandler();
 const httpServer = http.createServer(expressApp);
 const io = socketIo(httpServer);
 
-export const publicFolderFilePath: string = process.env.NODE_ENV === 'production'
-    ? path.join(__dirname + '../../../..', 'public') // additional .. to go out of .dist folder
-    : path.join(__dirname + '../../..', 'public');
+export const staticLiveFilesFolderPath: string = process.env.NODE_ENV === 'production'
+    ? path.join(__dirname + '../../../../..', 'static-live-files') // additional .. to go out of dist folder
+    : path.join(__dirname + '../../..', 'static-live-files');
 
 let regIndexMap: RegIndexMapping[] = [
     // default
@@ -87,8 +87,11 @@ export type RegIndexMapResponseData = {
 };
 
 nextApp.prepare().then(() => {
+    // Static Live files
+    expressApp.use(express.static('static-live-files'));
+
     expressApp.get('/api/pdfs', (_req, res: express.Response<PdfFilenamesResponseData>) => {
-        const pdfDirPath: string = path.join(publicFolderFilePath, 'pdfs');
+        const pdfDirPath: string = path.join(staticLiveFilesFolderPath, 'pdfs');
         fs.readdir(pdfDirPath, (err, files) => {
             if (err) {
                 console.log('Unable to scan directory: ' + err);
@@ -100,7 +103,7 @@ nextApp.prepare().then(() => {
     });
 
     expressApp.get('/api/map', (_req, res: express.Response<RegIndexMapResponseData>) => {
-        const regIndexMapPath: string = path.join(publicFolderFilePath, 'RegIndexMap.json');
+        const regIndexMapPath: string = path.join(staticLiveFilesFolderPath, 'RegIndexMap.json');
         if (!fs.existsSync(regIndexMapPath)) {
             return res.status(200).json({ regIndexMap: [] });
         } else {

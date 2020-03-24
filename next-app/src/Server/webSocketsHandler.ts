@@ -6,7 +6,7 @@ import { linkMidiDummyToReg } from './YamahaApi/regMidiAssigner';
 import { RegIndexMapping } from './serverApi';
 import { FileWithRawData } from '../fileUtil';
 import { getShortenedRegFilename } from './YamahaApi/utils/utils';
-import { publicFolderFilePath } from './server';
+import { staticLiveFilesFolderPath } from './server';
 
 /**
  * Links dummy MIDI files to the given Reg files and sends the mapping to the sockt client.
@@ -46,14 +46,14 @@ export async function addPdfFilesToServer(pdfFiles: FileWithRawData[]) {
 
     // https://stackoverflow.com/a/56908322
     pdfFiles.forEach((pdfFile: FileWithRawData) => {
-        const filePath = path.join(publicFolderFilePath, 'pdfs', pdfFile.name);
+        const filePath = path.join(staticLiveFilesFolderPath, 'pdfs', pdfFile.name);
         const fileStream = fs.createWriteStream(filePath);
         fileStream.write(pdfFile.data);
     });
 }
 
 export async function saveRegIndexMap(regIndexMap: RegIndexMapping[]) {
-    fs.writeFile(path.join(publicFolderFilePath, 'RegIndexMap.json'), JSON.stringify(regIndexMap), (err) => {
+    fs.writeFile(path.join(staticLiveFilesFolderPath, 'RegIndexMap.json'), JSON.stringify(regIndexMap), (err) => {
         if (err) {
             console.error(err);
         }
