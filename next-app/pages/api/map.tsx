@@ -14,7 +14,8 @@ export default async (_req: NextApiRequest, res: NextApiResponse<RegIndexMapResp
     } else {
         fs.readFile(regIndexMapPath, (err, data: Buffer) => {
             if (err) {
-                return res.status(500).json({ status: "error", message: "Unable to read file - " + err });
+                return res.status(500);
+                // return res.status(500).json({ status: "error", message: "Unable to read file - " + err });
             }
             return res.status(200).json({ regIndexMap: JSON.parse(data.toString()) });
         });

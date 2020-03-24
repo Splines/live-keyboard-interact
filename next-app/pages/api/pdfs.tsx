@@ -11,7 +11,8 @@ export default async (_req: NextApiRequest, res: NextApiResponse<PdfFilenamesRes
     fs.readdir(pdfDirPath, (err, files) => {
         if (err) {
             console.log('Unable to scan directory: ' + err);
-            return res.status(500).json({ status: "error", message: "Unable to scan directory - " + err });
+            return res.status(500);
+            // return res.status(500).json({ status: "error", message: "Unable to scan directory - " + err });
         }
         return res.status(200).json({ pdfFilenames: files });
     });
