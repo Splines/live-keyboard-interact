@@ -17,8 +17,9 @@ import socketIo from 'socket.io';
 // import { watchYamahaRegistration } from './midiHandler';
 // import { linkMidiToReg } from './RegMidiAssigner';
 import config from '../../../init-app/config.json';
-import { RegIndexMapping, FileWithRawData } from './serverApi';
-import { linkMidiToRegAndMap, addPdfFilesToServer } from './webSocketsHandler';
+import { RegIndexMapping } from './serverApi';
+import { FileWithRawData } from '../fileUtil';
+import { linkMidiToRegAndMap, addPdfFilesToServer, saveRegIndexMap } from './webSocketsHandler';
 import { watchRegChanges } from './midiLiveHandler';
 
 const dev = process.env.NODE_ENV !== 'production';
@@ -47,6 +48,11 @@ io.on('connection', (socket: socketIo.Socket) => {
     // === Save PDF files on server
     socket.on('postPDFs', async (pdfFiles: FileWithRawData[]) => {
         addPdfFilesToServer(pdfFiles);
+    });
+
+    // === Save JSON RegIndexMap on server
+    socket.on('postMap', (regIndexMap: RegIndexMapping[]) => {
+        saveRegIndexMap(regIndexMap);
     });
 
     // === Link Midi Files to Registration Memory Files

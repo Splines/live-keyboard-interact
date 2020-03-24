@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import Dropzone from '../Dropzone';
 import { Button, makeStyles, Theme, CircularProgress, Typography, Divider } from "@material-ui/core";
 import SendIcon from '@material-ui/icons/Send';
-import { postPdfs, FileWithRawData } from '../../Server/serverApi';
-import { getDataForFiles } from '../../fileUtil';
+import { postPdfs } from '../../Server/serverApi';
+import { getFilesWithArrayBufferData, FileWithRawData } from '../../fileUtil';
 import FileList from '../FileList';
 import useSWR from 'swr';
 import { PdfFilenamesResponseData } from '../../../pages/api/pdfs';
@@ -51,7 +51,7 @@ const MusicSheetsUploader = () => {
     };
 
     const processPdfFiles = async () => {
-        const filesWithData: FileWithRawData[] = await getDataForFiles(files);
+        const filesWithData: FileWithRawData[] = await getFilesWithArrayBufferData(files);
         postPdfs(filesWithData);
         // const newFilenames = filesWithData.map((file: FileWithRawData) => file.name);
         // const allFilenames = data ? [data.pdfFilenames, newFilenames] : newFilenames;

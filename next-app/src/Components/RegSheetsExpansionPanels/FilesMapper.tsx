@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { Paper, Typography, Tabs, Tab, Box, Theme, makeStyles, Button, CircularProgress, Divider } from "@material-ui/core";
 import Dropzone from '../Dropzone';
-import { FileWithRawData, subscribeLinkMidiFilesToReg } from '../../Server/serverApi';
+import { subscribeLinkMidiFilesToReg, postMap, RegIndexMapping } from '../../Server/serverApi';
 import SendIcon from '@material-ui/icons/Send';
 import { saveAs } from 'file-saver';
-import { getDataForFiles } from '../../fileUtil';
+import { getFilesWithTextData, FileWithTextData, FileWithRawData, getFilesWithArrayBufferData } from '../../fileUtil';
 import RegIndexMapTable from '../RegIndexMapTable';
 import { RegIndexMapResponseData } from '../../../pages/api/map';
 import useSWR from 'swr';
@@ -88,7 +88,7 @@ const FilesMapper = () => {
             console.log('There are 0 files. This should never happen!');
             return Promise.resolve();
         }
-        const filesWithData: FileWithRawData[] = await getDataForFiles(files);
+        const filesWithData: FileWithRawData[] = await getFilesWithArrayBufferData(files);
         // Send files to backend and process them
         subscribeLinkMidiFilesToReg(filesWithData, (zippedRegFiles: ArrayBuffer) => {
             // save with FileSaver
@@ -97,8 +97,15 @@ const FilesMapper = () => {
         });
     };
 
-    const processJsonFiles = () => {
-        console.log('tbd');
+    const processJsonFiles = async () => {
+        if (files.length === 0) {
+            // !!! should never happen because the Dropzone only shows the button when at least one file is uploaded
+            console.log('There are 0 files. This should never happen!');
+            return Promise.resolve();
+        }
+        const fileWithData: FileWithTextData[] = await getFilesWithTextData(files);
+        const regIndexMap: RegIndexMapping[] = JSON.parse(fileWithData[0].data) as RegIndexMapping[] // TODO: validate!!!
+        postMap(regIndexMap);
     };
 
     const regUploadButton: React.ReactElement =

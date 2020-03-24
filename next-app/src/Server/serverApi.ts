@@ -1,15 +1,10 @@
 import io from 'socket.io-client';
 import config from '../../../init-app/config.json';
+import { FileWithRawData } from '../fileUtil';
 
 // const socket: SocketIOClient.Socket = io(`ws://${config.accessPoint.ipStatic}:${config.server.port}/`, { transports: ['polling'] });
 // only for development
 const socket: SocketIOClient.Socket = io(`ws://localhost:${config.server.port}/`, { transports: ['polling'] });
-
-export interface FileWithRawData {
-    name: string;
-    lastModified: number;
-    data: ArrayBuffer;
-}
 
 ////////////
 // RegMap //
@@ -33,6 +28,13 @@ export function subscribeLinkMidiFilesToReg(regFiles: FileWithRawData[], callbac
 /////////
 export async function postPdfs(pdfFiles: FileWithRawData[]) {
     socket.emit('postPDFs', pdfFiles);
+}
+
+//////////////
+// JSON Map //
+//////////////
+export async function postMap(regIndexMap: RegIndexMapping[]) {
+    socket.emit('postMap', regIndexMap);
 }
 
 ///////////////

@@ -3,7 +3,8 @@ import fs from 'fs';
 // import fsExtra from 'fs-extra';
 import path from 'path';
 import { linkMidiDummyToReg } from './YamahaApi/regMidiAssigner';
-import { RegIndexMapping, FileWithRawData } from './serverApi';
+import { RegIndexMapping } from './serverApi';
+import { FileWithRawData } from '../fileUtil';
 import { getShortenedRegFilename } from './YamahaApi/utils/utils';
 
 /**
@@ -32,14 +33,9 @@ export async function linkMidiToRegAndMap(socket: SocketIO.Socket, regFiles: Fil
         const linkedRegFileContent: Uint8Array = linkMidiDummyToReg(regData, i);
         regFolder.file(regFilenameFull, linkedRegFileContent.buffer);
     }
-    const regIndexMapSerialized = JSON.stringify(regIndexMap);
-    zippedRegFiles.file('RegIndexMap.json', regIndexMapSerialized);
+    zippedRegFiles.file('RegIndexMap.json', JSON.stringify(regIndexMap));
     socket.emit('linkedMidiToReg', await zippedRegFiles.generateAsync({ type: "nodebuffer" }));
-    fs.writeFile(path.join(__dirname, '../..', 'public', 'RegIndexMap.json'), regIndexMapSerialized, (err) => {
-        if (err) {
-            console.error(err);
-        }
-    });
+    saveRegIndexMap(regIndexMap);
     return regIndexMap;
 }
 
@@ -53,5 +49,13 @@ export async function addPdfFilesToServer(pdfFiles: FileWithRawData[]) {
         const filePath = path.join(__dirname, '../..', 'public', 'pdfs', pdfFile.name);
         const fileStream = fs.createWriteStream(filePath);
         fileStream.write(pdfFile.data);
+    });
+}
+
+export async function saveRegIndexMap(regIndexMap: RegIndexMapping[]) {
+    fs.writeFile(path.join(__dirname, '../..', 'public', 'RegIndexMap.json'), JSON.stringify(regIndexMap), (err) => {
+        if (err) {
+            console.error(err);
+        }
     });
 }
