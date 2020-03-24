@@ -39,7 +39,7 @@ export async function linkMidiToRegAndMap(socket: SocketIO.Socket, regFiles: Fil
     return regIndexMap;
 }
 
-export async function addPdfFilesToServer(pdfFiles: FileWithRawData[]) {
+export function addPdfFilesToServer(pdfFiles: FileWithRawData[]) {
     https://stackoverflow.com/a/54903986
     // await fsExtra.emptyDir(path.join(__dirname, '../../', 'public', 'pdfs'));
 
@@ -51,10 +51,11 @@ export async function addPdfFilesToServer(pdfFiles: FileWithRawData[]) {
     });
 }
 
-// export async function saveRegIndexMap(regIndexMap: RegIndexMapping[]) {
-//     fs.writeFile(path.join(staticLiveFilesFolderPath, 'RegIndexMap.json'), JSON.stringify(regIndexMap), (err) => {
-//         if (err) {
-//             console.error(err);
-//         }
-//     });
-// }
+export function deletePdfFileFromServer(pdfFilename: string) {
+    const filePath = path.join(staticLiveFilesFolderPath, 'pdfs', pdfFilename);
+    fs.unlink(filePath, (err) => {
+        if (err) {
+            console.error(err);
+        }
+    });
+}

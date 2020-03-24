@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import Dropzone from '../Dropzone';
 import { Button, makeStyles, Theme, CircularProgress, Typography, Divider } from "@material-ui/core";
 import SendIcon from '@material-ui/icons/Send';
-import { postPdfs } from '../../Server/serverApi';
+import { postPdfs, deletePdf } from '../../Server/serverApi';
 import { getFilesWithArrayBufferData, FileWithRawData } from '../../fileUtil';
 import FileList from '../FileList';
 import useSWR from 'swr';
@@ -19,9 +19,8 @@ const fetcher = (url: string) => fetch(url).then((r: Response) => r.json());
 
 // https://github.com/zeit/swr#quick-start
 const PdfList = ({ data, error }: useSwrPdfFilenamesProps) => {
-    const handleDelete = (filename: string) => {
-        console.log('will delete: ' + filename);
-        // TODO: Implement logic here
+    const handleDelete = (pdfFilename: string) => {
+        deletePdf(pdfFilename);
     };
     if (error) return <Typography>Failed to load list of PDF filenames...</Typography>;
     if (!data) return <CircularProgress />;

@@ -25,8 +25,12 @@ export function subscribeLinkMidiFilesToReg(regFiles: FileWithRawData[], callbac
 /////////
 // PDF //
 /////////
-export async function postPdfs(pdfFiles: FileWithRawData[]) {
+export function postPdfs(pdfFiles: FileWithRawData[]) {
     socket.emit('postPDFs', pdfFiles);
+}
+
+export function deletePdf(pdfFilename: string) {
+    socket.emit('deletePDF', pdfFilename);
 }
 
 //////////////

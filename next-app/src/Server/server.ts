@@ -21,7 +21,7 @@ import fs from 'fs';
 import config from '../../../init-app/config.json';
 import { RegIndexMapping } from './serverApi';
 import { FileWithRawData } from '../fileUtil';
-import { linkMidiToRegAndMap, addPdfFilesToServer } from './webSocketsHandler';
+import { linkMidiToRegAndMap, addPdfFilesToServer, deletePdfFileFromServer } from './webSocketsHandler';
 import { watchRegChanges } from './midiLiveHandler';
 
 const dev = process.env.NODE_ENV !== 'production';
@@ -52,9 +52,14 @@ io.on('connection', (socket: socketIo.Socket) => {
     console.log(`${new Date()} received new connection from socket id ${socket.id}`);
 
     // === Save PDF files on server
-    socket.on('postPDFs', async (pdfFiles: FileWithRawData[]) => {
+    socket.on('postPDFs', (pdfFiles: FileWithRawData[]) => {
         addPdfFilesToServer(pdfFiles);
     });
+
+    // === Delete PDF file from server
+    socket.on('deletePDF', (pdfFilename: string) => {
+        deletePdfFileFromServer(pdfFilename);
+    })
 
     // === Save JSON RegIndexMap on server
     socket.on('postMap', (regIndexMap: RegIndexMapping[]) => {
