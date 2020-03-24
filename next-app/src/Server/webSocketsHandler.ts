@@ -32,8 +32,14 @@ export async function linkMidiToRegAndMap(socket: SocketIO.Socket, regFiles: Fil
         const linkedRegFileContent: Uint8Array = linkMidiDummyToReg(regData, i);
         regFolder.file(regFilenameFull, linkedRegFileContent.buffer);
     }
-    zippedRegFiles.file('RegIndexMap.json', JSON.stringify(regIndexMap));
+    const regIndexMapSerialized = JSON.stringify(regIndexMap);
+    zippedRegFiles.file('RegIndexMap.json', regIndexMapSerialized);
     socket.emit('linkedMidiToReg', await zippedRegFiles.generateAsync({ type: "nodebuffer" }));
+    fs.writeFile(path.join(__dirname, '../..', 'public', 'RegIndexMap.json'), regIndexMapSerialized, (err) => {
+        if (err) {
+            console.error(err);
+        }
+    });
     return regIndexMap;
 }
 

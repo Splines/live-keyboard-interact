@@ -50,8 +50,8 @@ io.on('connection', (socket: socketIo.Socket) => {
     });
 
     // === Link Midi Files to Registration Memory Files
-    socket.on('subscribeLinkMidiToReg', async (regFiles: FileWithRawData[]) => {
-        regIndexMap = await linkMidiToRegAndMap(socket, regFiles);
+    socket.on('subscribeLinkMidiToReg', (regFiles: FileWithRawData[]) => {
+        linkMidiToRegAndMap(socket, regFiles);
     });
 
     // === RegChange

@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
-import { Paper, Typography, Tabs, Tab, Box, Theme, makeStyles, Button } from "@material-ui/core";
+import { Paper, Typography, Tabs, Tab, Box, Theme, makeStyles, Button, CircularProgress, Divider } from "@material-ui/core";
 import Dropzone from '../Dropzone';
 import { FileWithRawData, subscribeLinkMidiFilesToReg } from '../../Server/serverApi';
 import SendIcon from '@material-ui/icons/Send';
 import { saveAs } from 'file-saver';
 import { getDataForFiles } from '../../fileUtil';
+import RegIndexMapTable from '../RegIndexMapTable';
+import { RegIndexMapResponseData } from '../../../pages/api/map';
+import useSWR from 'swr';
 
 const useStyles = makeStyles((theme: Theme) => ({
     root: {
@@ -39,10 +42,30 @@ const TabPanel = ({ children, value, index, ...other }: TabPanelProps) => {
     );
 };
 
+const MapTable = ({ data, error }: useSwrRegIndexMap) => {
+    // const handleDelete = (filename: string) => {
+    //     console.log('will delete: ' + filename);
+    //     // TODO: Implement delete
+    // }
+    if (error) return <Typography>Failed to load JSON RegIndexMap</Typography>;
+    if (!data) return <CircularProgress />;
+    return <RegIndexMapTable regIndexMap={data.regIndexMap} />;
+};
+
+type useSwrRegIndexMap = {
+    data?: RegIndexMapResponseData,
+    error?: any
+};
+
+const fetcher = (url: string) => fetch(url).then((r: Response) => r.json());
+
 const FilesMapper = () => {
     const classes = useStyles();
     const [tabValue, setTabValue] = useState(0);
     const [files, setFiles] = useState<File[]>([]);
+    const { data, error } = useSWR('/api/map', fetcher, {
+        refreshInterval: 3000
+    });
 
     const handleTabChange = (_event: React.ChangeEvent<{}>, newValue: number) => {
         setFiles([]);
@@ -107,7 +130,9 @@ const FilesMapper = () => {
 
     return (
         <div className={classes.root}>
-            <Paper square>
+            <Paper elevation={0}>
+                <MapTable data={data} error={error} />
+                <Divider style={{ margin: "20px" }} />
                 <Tabs
                     value={tabValue}
                     onChange={handleTabChange}
