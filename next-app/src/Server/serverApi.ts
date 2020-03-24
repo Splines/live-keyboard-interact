@@ -51,3 +51,7 @@ export function subscribeRegChange(callback: RegFilenameCallback) {
     socket.on('regChange', (regFilename: string) => callback(regFilename));
     socket.emit('subscribeRegChange');
 }
+
+export function unsubscribeRegChange() {
+    socket.emit('unsubscribeRegChange');
+}

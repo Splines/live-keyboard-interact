@@ -46,7 +46,8 @@ let regIndexMap: RegIndexMapping[] = [
 ///////////////////////////////////
 // Socket.io server (Websockets) //
 ///////////////////////////////////
-require('./serverApi'); // inti socket.io-client to socket.io connection
+require('./serverApi'); // init socket.io-client to socket.io connection
+const subscriptionSet = new Set<string>();
 io.on('connection', (socket: socketIo.Socket) => {
     // Connect new user
     console.log(`${new Date()} received new connection from socket id ${socket.id}`);
@@ -74,10 +75,17 @@ io.on('connection', (socket: socketIo.Socket) => {
     // === RegChange
     socket.on('subscribeRegChange', () => {
         console.log(`client (socket id ${socket.id}) subscribed to RegChange`);
+        subscriptionSet.add(socket.id);
         watchRegChanges(regIndexMap /*can't be changed later on (!)*/, (regFilename: string) => {
-            socket.emit('regChange', regFilename);
+            if (subscriptionSet.has(socket.id)) {
+                socket.emit('regChange', regFilename);
+            }
         });
     });
+
+    socket.on('unsubscribeRegChange', () => {
+        subscriptionSet.delete(socket.id);
+    })
 });
 
 //////////////////////////////////

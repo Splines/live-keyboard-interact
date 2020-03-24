@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Paper, makeStyles, Theme, Fab } from "@material-ui/core";
 import PlayCircleFilledWhiteIcon from '@material-ui/icons/PlayCircleFilledWhite';
-import { subscribeRegChange } from '../Server/serverApi';
+import { subscribeRegChange, unsubscribeRegChange } from '../Server/serverApi';
 import RegViewerBackdrop from './RegViewerBackdrop';
 
 const useStyle = makeStyles((theme: Theme) => ({
@@ -33,7 +33,7 @@ const RegViewerStarter = () => {
 
     const handleBackdropClose = () => {
         setBackdropOpen(false);
-        // TODO: unsubscribeRegChange
+        unsubscribeRegChange();
     };
 
     return (

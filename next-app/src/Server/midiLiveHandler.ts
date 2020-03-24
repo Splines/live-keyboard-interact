@@ -29,9 +29,12 @@ interface ProgramMessage {
 // }
 
 /////////////////////////////////////////////////
+let inputMidi: any;
 
 export function watchRegChanges(regIndexMap: RegIndexMapping[], callback: RegFilenameCallback) {
-    const inputMidi = initMidi();
+    if (!inputMidi) {
+        inputMidi = initMidi();
+    }
     startRegChangeHandling(inputMidi, regIndexMap, callback);
 }
 
