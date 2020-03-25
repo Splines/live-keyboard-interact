@@ -332,7 +332,7 @@ export function enableAccessPointMode(callback) {
             // https://raspberrypi.stackexchange.com/a/41370/112713
             function addIptablesHttpRouting(nextStep) {
                 const execCommmand = `sudo iptables -t nat -A PREROUTING -p tcp --dport 80 -j DNAT ` +
-                    `--to-destination ${config.accessPoint.ipStatic}:${config.server.httpPort}`
+                    `--to-destination ${config.accessPoint.ipStatic}:${config.server.port}`
                 exec(execCommmand, (err, stdout, stderr) => {
                     if (err) console.log('... iptables http port redirection failed! - ' + stdout);
                     else console.log('... iptables http port redirection success!');
@@ -343,7 +343,7 @@ export function enableAccessPointMode(callback) {
             // https://raspberrypi.stackexchange.com/a/41370/112713
             function addIptablesHttpsRouting(nextStep) {
                 const execCommand = `sudo iptables -t nat -A PREROUTING -p tcp --dport 443 -j DNAT ` +
-                    `--to-destination ${config.accessPoint.ipStatic}:${config.server.httpsPort}`;
+                    `--to-destination ${config.accessPoint.ipStatic}:${config.server.port}`;
                 exec(execCommand, (err, stdout, stderr) => {
                     if (err) console.log('... iptables https port redirection failed! - ' + stdout);
                     else console.log('... iptables https port redirection success!');

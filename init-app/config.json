@@ -14,7 +14,7 @@
         "ipSubnetRangeEnd": "192.168.1.200"
     },
     "server": {
-        "port": 1234
+        "port": 8080
     },
     "wifi": {
         "ssid": "YourWifiSSID",

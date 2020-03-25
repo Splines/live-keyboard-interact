@@ -165,11 +165,11 @@ nextApp.prepare().then(() => {
         return nextHandler(req, res);
     });
 
-    httpServer.listen(`${config.server.httpPort}`, () => {
+    httpServer.listen(`${config.server.port}`, () => {
         if (process.env.NODE_ENV === 'production') {
-            console.log(`http listening on ${config.accessPoint.ipStatic}:${config.server.httpPort}/`);
+            console.log(`http listening on ${config.accessPoint.ipStatic}:${config.server.port}/`);
         } else {
-            console.log(`http listening on localhost:${config.server.httpPort}/`);
+            console.log(`http listening on localhost:${config.server.port}/`);
         }
     });
 });
