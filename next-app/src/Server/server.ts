@@ -11,7 +11,7 @@
 
 import express from 'express';
 import http from 'http';
-import https from 'https';
+// import https from 'https';
 import next from 'next';
 import socketIo from 'socket.io';
 import path from 'path';
@@ -23,7 +23,7 @@ import config from '../../../init-app/config.json';
 import { RegIndexMapping } from './serverApi';
 import { FileWithRawData } from '../fileUtil';
 import { linkMidiToRegAndMap, addPdfFilesToServer, deletePdfFileFromServer } from './webSocketsHandler';
-import { watchRegChanges } from './midiLiveHandler';
+import { watchRegChanges, watchMidiChanges } from './midiLiveHandler';
 
 const dev = process.env.NODE_ENV !== 'production';
 const nextApp = next({ dev });
@@ -35,13 +35,9 @@ const rootNextAppFolderPath: string = process.env.NODE_ENV === 'production'
     : path.join(__dirname + '../../..');
 export const staticLiveFilesFolderPath: string = path.join(rootNextAppFolderPath, 'static-live-files');
 
-const httpsOptions = {
-    key: fs.readFileSync(path.join(rootNextAppFolderPath, 'server.key')), // private key
-    cert: fs.readFileSync(path.join(rootNextAppFolderPath, 'server.csr')) // Certificate Signing Request
-};
-const httpsServer = https.createServer(httpsOptions, expressApp);
+const httpServer = http.createServer(expressApp);
 const domainName = 'www.live-keyboard-interact.com';
-const io = socketIo(httpsServer);
+const io = socketIo(httpServer);
 
 let regIndexMap: RegIndexMapping[] = [
     // default
@@ -80,6 +76,13 @@ io.on('connection', (socket: socketIo.Socket) => {
         regIndexMap = await linkMidiToRegAndMap(socket, regFiles);
     });
 
+    // === Midi Messages
+    socket.on('subscribeMidiMessage', () => {
+        watchMidiChanges((newMessage: string) => {
+            socket.emit('midiMessage', newMessage);
+        })
+    });
+
     // === RegChange
     socket.on('subscribeRegChange', () => {
         console.log(`client (socket id ${socket.id}) subscribed to RegChange`);
@@ -112,21 +115,26 @@ nextApp.prepare().then(() => {
     expressApp.use(express.static('static-live-files'));
 
     expressApp.use((req, res, next) => {
+        if (process.env.NODE_ENV !== 'production') {
+            return next();
+        }
         // no double slashes (https://stackoverflow.com/a/17543050/9655481)
-        // see expressApp.get('//*')
-
+        //see expressApp.get('//*')
         // if user comes from another domain, redirect them to domainName
         if (req.originalUrl === '/redirect') { // for Microsoft connectivity check
-            return res.redirect(301, `https://${domainName}`);
+            return res.redirect(301, `http://${domainName}`);
         }
         if (req.get('host') !== domainName) {
-            return res.redirect(301, `https://${domainName}` + req.originalUrl);
+            return res.redirect(301, `http://${domainName}` + req.originalUrl);
         }
         return next();
     });
 
-    expressApp.get('//*', (_req, res) => {
-        return res.redirect(301, `https://${domainName}`);
+    expressApp.get('//*', (_req, res, next) => {
+        if (process.env.NODE_ENV !== 'production') {
+            return next();
+        }
+        return res.redirect(301, `http://${domainName}`);
     });
 
     expressApp.get('/api/pdfs', (_req, res: express.Response<PdfFilenamesResponseData>) => {
@@ -158,20 +166,26 @@ nextApp.prepare().then(() => {
         return nextHandler(req, res);
     });
 
-    httpsServer.listen(`${config.server.httpsPort}`, () => {
+    httpServer.listen(`${config.server.httpPort}`, () => {
         if (process.env.NODE_ENV === 'production') {
-            console.log(`http listening on ${config.accessPoint.ipStatic}:${config.server.httpsPort}/`);
+            console.log(`http listening on ${config.accessPoint.ipStatic}:${config.server.httpPort}/`);
         } else {
-            console.log(`http listening on localhost:${config.server.httpsPort}/`);
+            console.log(`http listening on localhost:${config.server.httpPort}/`);
         }
     });
 });
 
 // Additional http server for redirects
 // see https://stackoverflow.com/a/23977269/9655481
-const httpServer = http.createServer((req, res) => {
-    res.writeHead(301, {
-        "Location": `https://${domainName}` + req.url
-    }).end();
-});
-httpServer.listen(config.server.httpPort);
+//const httpServer = http.createServer((req, res) => {
+//  res.writeHead(301, {
+//       "Location": `https://${domainName}` + req.url
+//    }).end();
+//});
+//httpServer.listen(config.server.httpPort);
+
+// const httpsOptions = {
+//     key: fs.readFileSync(path.join(rootNextAppFolderPath, 'server.key')), // private key
+//     cert: fs.readFileSync(path.join(rootNextAppFolderPath, 'server.csr')) // Certificate Signing Request
+// };
+// const httpsServer = https.createServer(httpsOptions, expressApp);
