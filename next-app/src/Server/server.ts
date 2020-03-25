@@ -11,7 +11,6 @@
 
 import express from 'express';
 import http from 'http';
-// import https from 'https';
 import next from 'next';
 import socketIo from 'socket.io';
 import path from 'path';
@@ -175,17 +174,22 @@ nextApp.prepare().then(() => {
     });
 });
 
-// Additional http server for redirects
-// see https://stackoverflow.com/a/23977269/9655481
-//const httpServer = http.createServer((req, res) => {
-//  res.writeHead(301, {
-//       "Location": `https://${domainName}` + req.url
-//    }).end();
-//});
-//httpServer.listen(config.server.httpPort);
+// We are not using an https server for express here since that would require
+// a TRUSTED certificate and that's too much effort for a home-use project.
+// Of course, we could use a self-signed certificate but that would lead to
+// security warnings in most modern browsers (!)
 
 // const httpsOptions = {
 //     key: fs.readFileSync(path.join(rootNextAppFolderPath, 'server.key')), // private key
 //     cert: fs.readFileSync(path.join(rootNextAppFolderPath, 'server.csr')) // Certificate Signing Request
 // };
-// const httpsServer = https.createServer(httpsOptions, expressApp);
+
+// const httpsServer = https.createServer(httpsOptions, (req, res) => {
+//     const redirectPath = process.env.NODE_ENV === 'production'
+//         ? `http://${domainName}` + req.url
+//         : `http://localhost` + req.url
+//     res.writeHead(301, {
+//         "Location": redirectPath
+//     });
+// });
+// httpsServer.listen(config.server.httpsPort);
