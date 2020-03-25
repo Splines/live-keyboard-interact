@@ -4,6 +4,7 @@
   "description": "Initialization of Access Point on the Rasberry Pi",
   "main": "Init.js",
   "scripts": {
+    "build": "tsc",
     "start": "node ./dist/src/init.js",
     "revert": "node ./dist/src/initRevert.js",
     "provision": "apt update -y && apt install dnsmasq hostapd iw -y",
