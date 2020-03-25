@@ -11,6 +11,7 @@
 
 import express from 'express';
 import http from 'http';
+import https from 'https';
 import next from 'next';
 import socketIo from 'socket.io';
 import path from 'path';
@@ -28,12 +29,19 @@ const dev = process.env.NODE_ENV !== 'production';
 const nextApp = next({ dev });
 const expressApp = express();
 const nextHandler = nextApp.getRequestHandler();
-const httpServer = http.createServer(expressApp);
-const io = socketIo(httpServer);
 
-export const staticLiveFilesFolderPath: string = process.env.NODE_ENV === 'production'
-    ? path.join(__dirname + '../../../../..', 'static-live-files') // additional .. to go out of dist folder
-    : path.join(__dirname + '../../..', 'static-live-files');
+const rootNextAppFolderPath: string = process.env.NODE_ENV === 'production'
+    ? path.join(__dirname + '../../../../..') // additional .. to go out of dist folder
+    : path.join(__dirname + '../../..');
+export const staticLiveFilesFolderPath: string = path.join(rootNextAppFolderPath, 'static-live-files');
+
+const httpsOptions = {
+    key: fs.readFileSync(path.join(rootNextAppFolderPath, 'server.key')), // private key
+    cert: fs.readFileSync(path.join(rootNextAppFolderPath, 'server.csr')) // Certificate Signing Request
+};
+const httpsServer = https.createServer(httpsOptions, expressApp);
+const domainName = 'www.live-keyboard-interact.com';
+const io = socketIo(httpsServer);
 
 let regIndexMap: RegIndexMapping[] = [
     // default
@@ -103,6 +111,24 @@ nextApp.prepare().then(() => {
     // Static Live files
     expressApp.use(express.static('static-live-files'));
 
+    expressApp.use((req, res, next) => {
+        // no double slashes (https://stackoverflow.com/a/17543050/9655481)
+        // see expressApp.get('//*')
+
+        // if user comes from another domain, redirect them to domainName
+        if (req.originalUrl === '/redirect') { // for Microsoft connectivity check
+            return res.redirect(301, `https://${domainName}`);
+        }
+        if (req.get('host') !== domainName) {
+            return res.redirect(301, `https://${domainName}` + req.originalUrl);
+        }
+        return next();
+    });
+
+    expressApp.get('//*', (_req, res) => {
+        return res.redirect(301, `https://${domainName}`);
+    });
+
     expressApp.get('/api/pdfs', (_req, res: express.Response<PdfFilenamesResponseData>) => {
         const pdfDirPath: string = path.join(staticLiveFilesFolderPath, 'pdfs');
         fs.readdir(pdfDirPath, (err, files) => {
@@ -132,11 +158,20 @@ nextApp.prepare().then(() => {
         return nextHandler(req, res);
     });
 
-    httpServer.listen(`${config.server.port}`, () => {
+    httpsServer.listen(`${config.server.httpsPort}`, () => {
         if (process.env.NODE_ENV === 'production') {
-            console.log(`listening on ${config.accessPoint.ipStatic}:${config.server.port}/`);
+            console.log(`http listening on ${config.accessPoint.ipStatic}:${config.server.httpsPort}/`);
         } else {
-            console.log(`listening on localhost:${config.server.port}/`);
+            console.log(`http listening on localhost:${config.server.httpsPort}/`);
         }
     });
 });
+
+// Additional http server for redirects
+// see https://stackoverflow.com/a/23977269/9655481
+const httpServer = http.createServer((req, res) => {
+    res.writeHead(301, {
+        "Location": `https://${domainName}` + req.url
+    }).end();
+});
+httpServer.listen(config.server.httpPort);

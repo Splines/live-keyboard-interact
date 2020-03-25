@@ -3,7 +3,7 @@ import config from '../../../init-app/config.json';
 import { FileWithRawData } from '../fileUtil';
 
 const socketIp: string = process.env.NODE_ENV === 'production' ? config.accessPoint.ipStatic : 'localhost';
-const socket: SocketIOClient.Socket = io(`ws://${socketIp}:${config.server.port}/`, { transports: ['polling'] });
+const socket: SocketIOClient.Socket = io(`wss://${socketIp}/`, { transports: ['polling'] });
 
 ////////////
 // RegMap //
