@@ -6,6 +6,7 @@ import { makeStyles } from '@material-ui/core/styles';
 
 const useStyles = makeStyles(theme => ({
     footer: {
+        zIndex: theme.zIndex.drawer + 1,
         padding: theme.spacing(4, 1),
         marginTop: 'auto',
         background: `linear-gradient(60deg, ${fade(theme.palette.secondary.light, 0.7)} 30%, ${fade(theme.palette.secondary.main, 0.7)} 90%)`
