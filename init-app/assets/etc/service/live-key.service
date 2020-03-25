@@ -1,0 +1,20 @@
+# https://www.raspberrypi.org/documentation/linux/usage/systemd.md
+
+[Unit]
+Description=Live Keyboard Interact MIDI Controller
+Documentation=https://www.github.com/Ordinateur-Hack/live-keyboard-interact
+
+[Service]
+Type=simple
+WorkingDirectory=/home/pi/Live-Keyboard-Interact/init-app
+ExecStart=/usr/bin/npm run start
+ExecStop=/usr/bin/npm run revert
+Restart=on-failure
+User=root
+
+#StandardOutput=console
+# View service logs by writing
+# journalctl -u live-key
+
+[Install]
+WantedBy=multi-user.target

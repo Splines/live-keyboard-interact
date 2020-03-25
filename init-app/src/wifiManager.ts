@@ -26,16 +26,9 @@ SOFTWARE.
 // https://github.com/sabhiram/raspberry-wifi-conf/blob/master/app/wifi_manager.js
 
 import async from 'async';
-import fs from 'fs';
 import { exec } from 'child_process';
-import mustache from 'mustache';
 import config from '../config.json';
-
-mustache.escape = function (value) {
-    // disable escaping as seen here
-    // https://stackoverflow.com/a/23057003/9655481
-    return value;
-}
+import { writeTemplateToFile } from './util';
 
 interface AccessPointConfigContext {
     wifiDriverType: string;
@@ -339,7 +332,7 @@ export function enableAccessPointMode(callback) {
             // https://raspberrypi.stackexchange.com/a/41370/112713
             function addIptablesHttpRouting(nextStep) {
                 const execCommmand = `sudo iptables -t nat -A PREROUTING -p tcp --dport 80 -j DNAT ` +
-                    `--to-destination ${config.accessPoint.ipStatic}:${config.server.port}`
+                    `--to-destination ${config.accessPoint.ipStatic}:${config.server.httpPort}`
                 exec(execCommmand, (err, stdout, stderr) => {
                     if (err) console.log('... iptables http port redirection failed! - ' + stdout);
                     else console.log('... iptables http port redirection success!');
@@ -350,7 +343,7 @@ export function enableAccessPointMode(callback) {
             // https://raspberrypi.stackexchange.com/a/41370/112713
             function addIptablesHttpsRouting(nextStep) {
                 const execCommand = `sudo iptables -t nat -A PREROUTING -p tcp --dport 443 -j DNAT ` +
-                    `--to-destination ${config.accessPoint.ipStatic}:${config.server.port}`;
+                    `--to-destination ${config.accessPoint.ipStatic}:${config.server.httpsPort}`;
                 exec(execCommand, (err, stdout, stderr) => {
                     if (err) console.log('... iptables https port redirection failed! - ' + stdout);
                     else console.log('... iptables https port redirection success!');
@@ -418,31 +411,6 @@ function rebootWirlessNetwork(wlanInterface, callback: ErrorCallback) {
                 if (!err) console.log(`...ifconfig ${wlanInterface} up successful`);
                 nextStep();
             });
-        }
-    ], callback);
-}
-
-
-//////////////////////
-// Helper Functions //
-//////////////////////
-
-/**
- * Helper function to write a given template to a file based on a given context.
- * @param templatePath the path to the template
- * @param filepath the path to the output file
- * @param context the config
- * @param callback a callback
- */
-function writeTemplateToFile(templatePath: string, filepath: string, context, callback) {
-    async.waterfall([
-        function readTemplateFile(nextStep) {
-            fs.readFile(templatePath, { encoding: "utf8" }, nextStep);
-        },
-        function updateFile(fileData, nextStep) {
-            // Parse template file by using config.json
-            const templateTransformed = mustache.render(fileData, context);
-            fs.writeFile(filepath, templateTransformed, nextStep);
         }
     ], callback);
 }

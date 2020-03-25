@@ -28,8 +28,9 @@ SOFTWARE.
 import config from '../config.json';
 import async from 'async';
 import { exec } from 'child_process';
-import dependencyManager from './DependencyManager';
-import { isWifiEnabled, enableAccessPointMode } from './WifiManager';
+import dependencyManager from './dependencyManager';
+import { isWifiEnabled, enableAccessPointMode } from './wifiManager';
+import { configureSystemdService } from './serviceManager';
 
 async.series([
 
@@ -73,7 +74,16 @@ async.series([
         });
     },
 
-    // 4. Host HTTP server while functioning as Access Point
+    // 4. Configure live-key as systemd service
+    function configureAppAsService(nextStep) {
+        configureSystemdService((err) => {
+            if (err) console.log('Error configuring live-key as a systemd service: ' + err);
+            else console.log('Configured live-key as systemd service (see /etc/systemd/system/live-key.service)');
+            nextStep();
+        });
+    },
+
+    // 5. Host HTTP server while functioning as Access Point
     // The "server.js"-file contains all the needed logic to get a basic
     // express server up. It uses a React application.
     function startHttpServer(nextStep) {

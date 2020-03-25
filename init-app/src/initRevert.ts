@@ -26,7 +26,7 @@ SOFTWARE.
 // https://github.com/sabhiram/raspberry-wifi-conf/blob/master/server.js
 
 import async from 'async';
-import { enableWifiMode } from './WifiManager';
+import { enableWifiMode } from './wifiManager';
 
 async.series([
 
