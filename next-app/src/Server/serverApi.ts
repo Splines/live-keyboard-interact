@@ -40,6 +40,18 @@ export async function postMap(regIndexMap: RegIndexMapping[]) {
     socket.emit('postMap', regIndexMap);
 }
 
+/////////////
+// MidiLog //
+/////////////
+export interface MidiMessageCallback {
+    (newMessgae: string): void;
+}
+
+export function subscribeMidiMsg(callback: MidiMessageCallback) {
+    socket.on('midiMessage', (newMessage: string) => callback(newMessage));
+    socket.emit('subscribeMidiMessage');
+}
+
 ///////////////
 // RegChange //
 ///////////////

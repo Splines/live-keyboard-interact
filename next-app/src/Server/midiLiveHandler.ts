@@ -1,6 +1,6 @@
 // @ts-ignore
 import easymidi = require('easymidi');
-import { RegIndexMapping, RegFilenameCallback } from './serverApi';
+import { RegIndexMapping, RegFilenameCallback, MidiMessageCallback } from './serverApi';
 
 // interface SysEx {
 //     bytes: number[];
@@ -36,6 +36,18 @@ export function watchRegChanges(regIndexMap: RegIndexMapping[], callback: RegFil
         inputMidi = initMidi();
     }
     startRegChangeHandling(inputMidi, regIndexMap, callback);
+}
+
+export function watchMidiChanges(callback: MidiMessageCallback) {
+    if (!inputMidi) {
+        inputMidi = initMidi();
+    }
+    inputMidi.on('message', (msg: any) => {
+        const vals = Object.keys(msg).map((key) => {
+            return key + ": " + msg[key];
+        });
+        callback(vals.join(', '));
+    });
 }
 
 function initMidi() {
