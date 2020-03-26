@@ -50,7 +50,8 @@ let regIndexMap: RegIndexMapping[] = [
 // Socket.io server (Websockets) //
 ///////////////////////////////////
 require('./serverApi'); // init socket.io-client to socket.io connection
-const subscriptionSet = new Set<string>();
+const regSubscriptionSet = new Set<string>();
+const midiLogSubscriptionSet = new Set<string>();
 io.on('connection', (socket: socketIo.Socket) => {
     // Connect new user
     console.log(`${new Date()} received new connection from socket id ${socket.id}`);
@@ -77,24 +78,31 @@ io.on('connection', (socket: socketIo.Socket) => {
 
     // === Midi Messages
     socket.on('subscribeMidiMessage', () => {
+        midiLogSubscriptionSet.add(socket.id);
         watchMidiChanges((newMessage: string) => {
-            socket.emit('midiMessage', newMessage);
+            if (midiLogSubscriptionSet.has(socket.id)) {
+                socket.emit('midiMessage', newMessage);
+            }
         })
+    });
+
+    socket.on('unsubscribeMidiMessage', () => {
+        midiLogSubscriptionSet.delete(socket.id);
     });
 
     // === RegChange
     socket.on('subscribeRegChange', () => {
         console.log(`client (socket id ${socket.id}) subscribed to RegChange`);
-        subscriptionSet.add(socket.id);
+        regSubscriptionSet.add(socket.id);
         watchRegChanges(regIndexMap /*can't be changed later on (!)*/, (regFilename: string) => {
-            if (subscriptionSet.has(socket.id)) {
+            if (regSubscriptionSet.has(socket.id)) {
                 socket.emit('regChange', regFilename);
             }
         });
     });
 
     socket.on('unsubscribeRegChange', () => {
-        subscriptionSet.delete(socket.id);
+        regSubscriptionSet.delete(socket.id);
     })
 });
 

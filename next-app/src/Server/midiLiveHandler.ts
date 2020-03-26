@@ -39,14 +39,24 @@ export function watchRegChanges(regIndexMap: RegIndexMapping[], callback: RegFil
 }
 
 export function watchMidiChanges(callback: MidiMessageCallback) {
-    if (!inputMidi) {
-        inputMidi = initMidi();
-    }
-    inputMidi.on('message', (msg: any) => {
-        const vals = Object.keys(msg).map((key) => {
-            return key + ": " + msg[key];
+    // if (!inputMidi) {
+    //     inputMidi = initMidi();
+    // }
+    // inputMidi.on('message', (msg: any) => {
+    //     const vals = Object.keys(msg).map((key) => {
+    //         return key + ": " + msg[key];
+    //     });
+    //     callback(vals.join(', '));
+    // });
+
+    // https://github.com/dinchak/node-easymidi/blob/master/examples/monitor_all_inputs.js
+    // Monitor all MIDI inputs with a single "message" listener
+    easymidi.getInputs().forEach((inputName: string) => {
+        var input = new easymidi.Input(inputName);
+        input.on('message', (msg: any) => {
+            var vals = Object.keys(msg).map(function (key) { return key + ": " + msg[key]; });
+            callback(inputName + ": " + vals.join(', '));
         });
-        callback(vals.join(', '));
     });
 }
 

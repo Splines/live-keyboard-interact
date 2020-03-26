@@ -52,6 +52,10 @@ export function subscribeMidiMsg(callback: MidiMessageCallback) {
     socket.emit('subscribeMidiMessage');
 }
 
+export function unsubscribeMidiMsg() {
+    socket.emit('unsubscribeMidiMessage');
+}
+
 ///////////////
 // RegChange //
 ///////////////
