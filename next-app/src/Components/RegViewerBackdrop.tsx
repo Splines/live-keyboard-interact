@@ -5,7 +5,7 @@ import CircularProgress from '@material-ui/core/CircularProgress';
 const useStyle = makeStyles((theme: Theme) => ({
     backdrop: {
         // display: "block",
-        zIndex: theme.zIndex.drawer + 1,
+        zIndex: theme.zIndex.drawer + 100,
         color: "#fff",
         backgroundColor: "rgba(0, 0, 0, 0.8)"
     },

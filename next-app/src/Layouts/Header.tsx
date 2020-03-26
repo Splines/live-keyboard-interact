@@ -3,7 +3,7 @@ import { AppBar, Toolbar, Typography, makeStyles, Theme } from '@material-ui/cor
 
 const useStyles = makeStyles((theme: Theme) => ({
     appBar: {
-        zIndex: theme.zIndex.drawer + 100,
+        zIndex: theme.zIndex.drawer + 2,
         background: `linear-gradient(45deg, ${theme.palette.primary.main} 30%, ${theme.palette.primary.light} 100%)`
     }
 }));
