@@ -11,14 +11,14 @@
     "file-saver": "^2.0.2",
     "fs-extra": "^9.0.0",
     "jszip": "^3.2.2",
+    "midi": "^1.0.0",
     "next": "latest",
     "react": "latest",
     "react-dom": "latest",
     "react-dropzone": "^10.2.1",
     "socket.io": "^2.3.0",
     "socket.io-client": "^2.3.0",
-    "swr": "^0.1.18",
-    "ts-node": "^8.6.2"
+    "swr": "^0.1.18"
   },
   "scripts": {
     "dev": "NODE_ENV=development ts-node --project tsconfig.server.json src/Server/server.ts",
@@ -38,6 +38,7 @@
     "@types/react-dom": "latest",
     "@types/socket.io": "^2.1.4",
     "@types/socket.io-client": "^1.4.32",
+    "ts-node": "^8.8.1",
     "typescript": "latest"
   }
 }
