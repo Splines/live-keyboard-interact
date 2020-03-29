@@ -1,12 +1,14 @@
 // @ts-ignore
 // see documentation: https://github.com/justinlatimer/node-midi
-import midi from 'midi';
+// import midi from 'midi';
+const midi = require('midi');
 import { typedEventEmitter } from './eventEmitter';
-import { NoteOffMessage, NoteOnMessage, ControlChangeMessage, PolyAftertouchMessage, ProgramChangeMessage, ChannelAftertouchMessage, PitchBendDataMessage, MidiMessage, ChannelVoiceMessage } from './midiTypes';
+import { NoteOffMessage, NoteOnMessage, ControlChangeMessage, PolyAftertouchMessage, ProgramChangeMessage, ChannelAftertouchMessage, PitchBendDataMessage, MidiMessage, ChannelVoiceMessage, SystemExclusiveMessageType, SystemRealTimeMessageType, SystemCommonMessageType, SystemMessage } from './midiTypes';
 import { ChannelVoiceMessageType, SystemExclusiveMessage, SystemCommonMessage, SystemRealTimeMessage } from './midiTypes';
 
 type MidiMessagesEventMap = {
     'message': MidiMessage, // for easy monitoring of all messages
+    'channel voice message': ChannelVoiceMessage,
     'noteoff': NoteOffMessage,
     'noteon': NoteOnMessage,
     'poly aftertouch': PolyAftertouchMessage,
@@ -28,9 +30,8 @@ export class Input {
         this.input.ignoreTypes(false, false, false);
 
         // Count the available input ports
-        const numInputs: number = this.input.getPortcount();
         let found = false;
-        for (let i = 0; i < numInputs; i++) {
+        for (let i = 0; i < this.input.getPortCount(); i++) {
             // Get the name of a specified input port and compare with name that the user entered
             if (name === this.input.getPortName(i)) {
                 found = true;
@@ -51,13 +52,31 @@ export class Input {
 
     private parseAndEmitMidiMessage(message: number[]): MidiMessage {
         if (message[0] >= 0xF0) { // System messages
-            // handle system messages
-            // return { channel: 0, type: 0, data: [2, 3, 4] };
-            return { type: undefined };
+            const type = message[0];
+            // let messageHex: string = '';
+            // message.forEach((value: number) => {
+            //     messageHex += value.toString(16);
+            //     messageHex += ' ';
+            // });
+            if (type in SystemExclusiveMessageType) {
+                const sysExMessage: SystemMessage = {
+                    rawData: message,
+                    type: type
+                };
+                this.midiMessageEmitter.emit('sysex', sysExMessage);
+                return sysExMessage;
+            } else if (type in SystemCommonMessageType) {
+                // console.log('system common: "' + messageHex + '"');
+            } else if (type in SystemRealTimeMessageType) {
+                // console.log('system real time: "' + messageHex + '"');
+            }
+            return { type: undefined, rawData: [] };
         } else { // Channel message
+            // TODO: deal with running status (no status byte in subsequenct messages)
             const type = message[0] >> 4; // move upper 4 bits to lower 4 bits
             const channel = message[0] & 0xF; // only care for lower 4 bits
             const channelMessageBasis = {
+                rawData: message,
                 type: type,
                 channel: channel
             };
@@ -140,12 +159,14 @@ export class Input {
                     break;
                 default:
                     channelMessageExtended = {
+                        rawData: [],
                         type: ChannelVoiceMessageType.UNDEFINED,
                         channel: 0
                     };
                     break;
             }
-            return { ...channelMessageExtended };
+            this.midiMessageEmitter.emit('channel voice message', channelMessageExtended)
+            return channelMessageExtended;
         }
     }
 
@@ -163,7 +184,7 @@ export class Input {
     }
 }
 
-export function getInputs(): string[] {
+export function getInputNames(): string[] {
     const input = new midi.input();
     const inputs: string[] = [];
     for (let i = 0; i < input.getPortCount(); i++) {
@@ -172,12 +193,3 @@ export function getInputs(): string[] {
     // input.closePort(); // no need to close ports since none were opened
     return inputs;
 }
-
-
-// Testing
-// getInputs().forEach((inputName: string) => {
-//     const input = new Input(inputName);
-//     input.onMidiEvent('noteon', (message: NoteOnMessage) => {
-//         console.log(message.attackVelocity);
-//     });
-// });
