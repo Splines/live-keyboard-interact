@@ -1,16 +1,34 @@
-export interface MidiMessage {
-    rawData: number[];
-    type: ChannelVoiceMessageType | SystemExclusiveMessageType | undefined; // extend later for System messages
-}
+export class MidiMessage {
+    type: ChannelVoiceMessageType | SystemExclusiveMessageType | undefined; // TODO: extend later
 
+    constructor(type: ChannelVoiceMessageType | SystemExclusiveMessageType | undefined) {
+        this.type = type;
+    }
+}
 
 ////////////////////////////
 // Channel Voice Messages //
 ////////////////////////////
 // http://www.somascape.org/midi/tech/spec.html#chanmsgs
-export interface ChannelVoiceMessage extends MidiMessage {
-    type: ChannelVoiceMessageType;
+export class ChannelVoiceMessage extends MidiMessage {
     channel: number;
+    dataBytes: number[];
+
+    constructor(type: ChannelVoiceMessageType, channel: number, dataBytes: number[]) {
+        super(type);
+        this.channel = channel;
+        this.dataBytes = dataBytes;
+    }
+
+    public changeChannel(channel: number): ChannelVoiceMessage {
+        this.channel = channel;
+        return this;
+    }
+
+    public getRawData(): number[] {
+        const statusByte: number = parseInt((this.type as ChannelVoiceMessageType).toString(16) + this.channel.toString(16), 16);
+        return [statusByte, ...this.dataBytes];
+    }
 }
 
 export enum ChannelVoiceMessageType {
@@ -24,39 +42,91 @@ export enum ChannelVoiceMessageType {
     PITCH_BEND = 0x0E
 }
 
-export interface NoteOffMessage extends ChannelVoiceMessage {
+export class NoteOffMessage extends ChannelVoiceMessage {
     note: number;
-    releaseVelociy: number;
+    releaseVelocity: number;
+
+    constructor(channel: number, note: number, releaseVelocity: number) {
+        super(ChannelVoiceMessageType.NOTE_OFF, channel, [note, releaseVelocity]);
+        this.note = note;
+        this.releaseVelocity = releaseVelocity;
+    }
 }
 
-export interface NoteOnMessage extends ChannelVoiceMessage {
+export class NoteOnMessage extends ChannelVoiceMessage {
     note: number;
     attackVelocity: number;
+
+    constructor(channel: number, note: number, attackVelocity: number) {
+        super(ChannelVoiceMessageType.NOTE_ON, channel, [note, attackVelocity]);
+        this.note = note;
+        this.attackVelocity = attackVelocity;
+    }
 }
 
-export interface PolyAftertouchMessage extends ChannelVoiceMessage {
+export class PolyAftertouchMessage extends ChannelVoiceMessage {
     note: number;
     pressureValue: number;
+
+    constructor(channel: number, note: number, pressureValue: number) {
+        super(ChannelVoiceMessageType.POLY_AFTERTOUCH, channel, [note, pressureValue]);
+        this.note = note;
+        this.pressureValue = pressureValue;
+    }
 }
 
-export interface ControlChangeMessage extends ChannelVoiceMessage {
+export class ControlChangeMessage extends ChannelVoiceMessage {
     controllerNumber: number; // values 120-127 are reserved for Channel Mode messages
     controllerValue: number; // for switch controllers: 0=Off, 127=On
+
+    constructor(channel: number, controllerNumber: number, controllerValue: number) {
+        super(ChannelVoiceMessageType.CONTROL_CHANGE, channel, [controllerNumber, controllerValue]);
+        this.controllerNumber = controllerNumber;
+        this.controllerValue = controllerValue;
+    }
 }
 
-export interface ProgramChangeMessage extends ChannelVoiceMessage {
+export class ProgramChangeMessage extends ChannelVoiceMessage {
     programNumber: number;
+
+    constructor(channel: number, programNumber: number) {
+        super(ChannelVoiceMessageType.PROGRAM_CHANGE, channel, [programNumber]);
+        this.programNumber = programNumber;
+    }
 }
 
-export interface ChannelAftertouchMessage extends ChannelVoiceMessage {
+export class ChannelAftertouchMessage extends ChannelVoiceMessage {
     pressureValue: number;
+
+    constructor(channel: number, pressureValue: number) {
+        super(ChannelVoiceMessageType.CHANNEL_AFTERTOUCH, channel, [pressureValue]);
+        this.pressureValue = pressureValue;
+    }
 }
 
-export interface PitchBendDataMessage extends ChannelVoiceMessage {
-    // 00 40 is the central (no bend) setting --> gets mapped to 0
-    // 00 00 is the maximum downwards bend --> gets mapped to -16.384
-    // 7F 7F is the maximum upwards bend --> gets mapped to +16.384
-    bendValue: number; // range: -16.384 to +16.384
+export class PitchBendDataMessage extends ChannelVoiceMessage {
+    bendValueLsb: number;
+    bendValueMsb: number;
+
+    constructor(channel: number, bendValueLsb: number, bendValueMsb: number) {
+        super(ChannelVoiceMessageType.PITCH_BEND, channel, [bendValueLsb, bendValueMsb]);
+        this.bendValueLsb = bendValueLsb;
+        this.bendValueMsb = bendValueMsb;
+    }
+
+    getNormalizedBendValue(): number {
+        // 00 40 is the central (no bend) setting --> gets mapped to 0
+        // 00 00 is the maximum downwards bend --> gets mapped to -16.384
+        // 7F 7F is the maximum upwards bend --> gets mapped to +16.384
+        return this.bendValueLsb + (this.bendValueMsb << 8) - 0x4000 //16.384 (no bend should equal 0)
+    }
+}
+
+export class UndefinedChannelVoiceMessage extends ChannelVoiceMessage {
+
+    constructor() {
+        super(ChannelVoiceMessageType.UNDEFINED, -1, []);
+    }
 }
 
 
@@ -64,6 +134,7 @@ export interface PitchBendDataMessage extends ChannelVoiceMessage {
 // System Messages //
 /////////////////////
 export interface SystemMessage extends MidiMessage {
+    rawData: number[];
 }
 
 // Sytem Exclusive Messages

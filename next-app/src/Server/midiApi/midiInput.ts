@@ -3,7 +3,7 @@
 // import midi from 'midi';
 const midi = require('midi');
 import { typedEventEmitter } from './eventEmitter';
-import { NoteOffMessage, NoteOnMessage, ControlChangeMessage, PolyAftertouchMessage, ProgramChangeMessage, ChannelAftertouchMessage, PitchBendDataMessage, MidiMessage, ChannelVoiceMessage, SystemExclusiveMessageType, SystemRealTimeMessageType, SystemCommonMessageType, SystemMessage } from './midiTypes';
+import { NoteOffMessage, NoteOnMessage, ControlChangeMessage, PolyAftertouchMessage, ProgramChangeMessage, ChannelAftertouchMessage, PitchBendDataMessage, MidiMessage, ChannelVoiceMessage, SystemExclusiveMessageType, SystemRealTimeMessageType, SystemCommonMessageType, SystemMessage, UndefinedChannelVoiceMessage } from './midiTypes';
 import { ChannelVoiceMessageType, SystemExclusiveMessage, SystemCommonMessage, SystemRealTimeMessage } from './midiTypes';
 
 type MidiMessagesEventMap = {
@@ -70,103 +70,55 @@ export class Input {
             } else if (type in SystemRealTimeMessageType) {
                 // console.log('system real time: "' + messageHex + '"');
             }
-            return { type: undefined, rawData: [] };
+            return { type: undefined };
         } else { // Channel message
             // TODO: deal with running status (no status byte in subsequenct messages)
             const type = message[0] >> 4; // move upper 4 bits to lower 4 bits
             const channel = message[0] & 0xF; // only care for lower 4 bits
-            const channelMessageBasis = {
-                rawData: message,
-                type: type,
-                channel: channel
-            };
 
-            let channelMessageExtended: ChannelVoiceMessage;
+            let channelVoiceMessage: ChannelVoiceMessage;
             switch (type) {
                 case ChannelVoiceMessageType.NOTE_OFF:
-                    const noteOffMessage: NoteOffMessage = {
-                        ...channelMessageBasis,
-                        note: message[1],
-                        releaseVelociy: message[2]
-                    };
-                    channelMessageExtended = noteOffMessage;
-                    this.midiMessageEmitter.emit('noteoff', {
-                        ...noteOffMessage
-                    });
+                    const noteOffMessage = new NoteOffMessage(channel, message[1], message[2]);
+                    this.midiMessageEmitter.emit('noteoff', noteOffMessage);
+                    channelVoiceMessage = noteOffMessage;
                     break;
                 case ChannelVoiceMessageType.NOTE_ON:
-                    const noteOnMessage: NoteOnMessage = {
-                        ...channelMessageBasis,
-                        note: message[1],
-                        attackVelocity: message[2]
-                    };
-                    channelMessageExtended = noteOnMessage;
-                    this.midiMessageEmitter.emit('noteon', {
-                        ...noteOnMessage
-                    });
+                    const noteOnMessage = new NoteOnMessage(channel, message[1], message[2]);
+                    this.midiMessageEmitter.emit('noteon', noteOnMessage);
+                    channelVoiceMessage = noteOnMessage;
                     break;
                 case ChannelVoiceMessageType.POLY_AFTERTOUCH:
-                    const polyAftertouchMessage: PolyAftertouchMessage = {
-                        ...channelMessageBasis,
-                        note: message[1],
-                        pressureValue: message[2]
-                    };
-                    channelMessageExtended = polyAftertouchMessage;
-                    this.midiMessageEmitter.emit('poly aftertouch', {
-                        ...polyAftertouchMessage
-                    });
+                    const polyAftertouchMessage = new PolyAftertouchMessage(channel, message[1], message[2]);
+                    this.midiMessageEmitter.emit('poly aftertouch', polyAftertouchMessage);
+                    channelVoiceMessage = polyAftertouchMessage;
                     break;
                 case ChannelVoiceMessageType.CONTROL_CHANGE:
-                    const controlChangeMessage: ControlChangeMessage = {
-                        ...channelMessageBasis,
-                        controllerNumber: message[1],
-                        controllerValue: message[2]
-                    };
-                    channelMessageExtended = controlChangeMessage;
-                    this.midiMessageEmitter.emit('cc', {
-                        ...controlChangeMessage
-                    });
+                    const controlChangeMessage = new ControlChangeMessage(channel, message[1], message[2]);
+                    this.midiMessageEmitter.emit('cc', controlChangeMessage);
+                    channelVoiceMessage = controlChangeMessage;
                     break;
                 case ChannelVoiceMessageType.PROGRAM_CHANGE:
-                    const programChangeMessage: ProgramChangeMessage = {
-                        ...channelMessageBasis,
-                        programNumber: message[1]
-                    }
-                    channelMessageExtended = programChangeMessage;
-                    this.midiMessageEmitter.emit('program', {
-                        ...programChangeMessage,
-                    });
+                    const programChangeMessage = new ProgramChangeMessage(channel, message[1]);
+                    this.midiMessageEmitter.emit('program', programChangeMessage);
+                    channelVoiceMessage = programChangeMessage;
                     break;
                 case ChannelVoiceMessageType.CHANNEL_AFTERTOUCH:
-                    const channelAftertouchMessage: ChannelAftertouchMessage = {
-                        ...channelMessageBasis,
-                        pressureValue: message[1]
-                    };
-                    channelMessageExtended = channelAftertouchMessage;
-                    this.midiMessageEmitter.emit('channel aftertouch', {
-                        ...channelAftertouchMessage
-                    });
+                    const channelAftertouchMessage = new ChannelAftertouchMessage(channel, message[1]);
+                    this.midiMessageEmitter.emit('channel aftertouch', channelAftertouchMessage);
+                    channelVoiceMessage = channelAftertouchMessage;
                     break;
                 case ChannelVoiceMessageType.PITCH_BEND:
-                    const pitchBendMessage: PitchBendDataMessage = {
-                        ...channelMessageBasis,
-                        bendValue: message[1] + (message[2] << 8) - 0x4000 //16.384 (no bend should equals 0)
-                    };
-                    channelMessageExtended = pitchBendMessage;
-                    this.midiMessageEmitter.emit('pitch', {
-                        ...pitchBendMessage
-                    });
+                    const pitchBendMessage = new PitchBendDataMessage(channel, message[1], message[2]);
+                    this.midiMessageEmitter.emit('pitch', pitchBendMessage);
+                    channelVoiceMessage = pitchBendMessage;
                     break;
                 default:
-                    channelMessageExtended = {
-                        rawData: [],
-                        type: ChannelVoiceMessageType.UNDEFINED,
-                        channel: 0
-                    };
+                    channelVoiceMessage = new UndefinedChannelVoiceMessage();
                     break;
             }
-            this.midiMessageEmitter.emit('channel voice message', channelMessageExtended)
-            return channelMessageExtended;
+            this.midiMessageEmitter.emit('channel voice message', channelVoiceMessage)
+            return channelVoiceMessage;
         }
     }
 
