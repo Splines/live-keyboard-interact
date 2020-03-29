@@ -1,6 +1,8 @@
 export interface MidiMessage {
-    type: ChannelVoiceMessageType | undefined; // extend later for System messages
+    rawData: number[];
+    type: ChannelVoiceMessageType | SystemExclusiveMessageType | undefined; // extend later for System messages
 }
+
 
 ////////////////////////////
 // Channel Voice Messages //
@@ -57,17 +59,48 @@ export interface PitchBendDataMessage extends ChannelVoiceMessage {
     bendValue: number; // range: -16.384 to +16.384
 }
 
+
 /////////////////////
 // System Messages //
 /////////////////////
-export interface SystemExclusiveMessage {
+export interface SystemMessage extends MidiMessage {
+}
+
+// Sytem Exclusive Messages
+export enum SystemExclusiveMessageType {
+    START_OF_SYSTEM_EXCLUSIVE = 0xF0,
+    END_OF_SYSTEM_EXCLUSIVE = 0xF7 // will never occur since midi library is handling this
+}
+
+export interface SystemExclusiveMessage extends SystemMessage {
 
 }
 
-export interface SystemCommonMessage {
+// Sytem Common Messages
+// intended for all channels in a system
+export enum SystemCommonMessageType {
+    MIDI_TIME_CODE_QUARTER_FRAME = 0xF1,
+    SONG_POSITION_POINTER = 0xF2,
+    SONG_SELECT = 0xF3,
+    TUNE_REQUEST = 0xF6
+}
+
+export interface SystemCommonMessage extends SystemMessage {
 
 }
 
-export interface SystemRealTimeMessage {
-    
+// System Real Time Messages
+// control the entire system (all devices, irrespective of channel setting) in real time
+// used for synchronising clock-based devices (e.g. sequencers and rhythm units)
+export enum SystemRealTimeMessageType {
+    TIMING_CLOCK = 0xF8,
+    START = 0xFA,
+    CONTINUE = 0xFB,
+    STOP = 0xFC,
+    ACTIVE_SENSING = 0xFE,
+    SYSTEM_RESET = 0xFF
+}
+
+export interface SystemRealTimeMessage extends SystemMessage {
+
 }
