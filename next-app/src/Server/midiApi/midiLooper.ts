@@ -1,6 +1,6 @@
 // Basic looper test
 import { getInputNames, Input } from "./midiInput";
-import { ChannelVoiceMessage, SystemExclusiveMessage, ControlChangeMessage, ProgramChangeMessage } from "./midiTypes";
+import { ChannelVoiceMessage, SystemExclusiveMessage, ControlChangeMessage, ProgramChangeMessage, NoteOnMessage, ChannelVoiceMessageType } from "./midiTypes";
 import { getOutputNames, Output } from "./midiOutput";
 import { areArraysEqual } from "../YamahaApi/utils/nodeUtils";
 
@@ -110,19 +110,31 @@ function stopRecording() {
         sequenceDuration = Date.now() - recordingStartTime;
     }
     if (nextCalculatedStopTime > 0 && Date.now() < nextCalculatedStopTime) {
-        // user pressed Vocal harmony OFF before calculated end
+        // user pressed vocal harmony OFF before calculated end
         // don't stop this sequence yet
         console.log('User pressed Vocal harmony OFF before calculated end was reached');
         return;
     }
-    if (currentSequence.length) { // TODO: change to: if there is no NOTE_ON message
+    if (containsAnyNoteMessage(currentSequence)) {
         outputChannel += 1;
+        console.log('==============================================');
         console.log('outputChannel + 1 ========================================= +1');
+        console.log('==============================================');
         startLooping(currentSequence);
-        currentSequence = [];
     } else {
-        console.log("Sequence doesn't contain any NOTE_ON messages, so won't start the looper");
+        console.log("Sequence doesn't contain any NOTE_ON/OFF messages, so won't start the looper");
     }
+    currentSequence = [];
+}
+
+function containsAnyNoteMessage(sequence: MidiLoopSequence): boolean {
+    return sequence.some((item: MidiLoopItem) => {
+        if (item.message.type === ChannelVoiceMessageType.NOTE_ON
+            || item.message.type === ChannelVoiceMessageType.NOTE_OFF) {
+            return true;
+        }
+        return false;
+    });
 }
 
 function startLooping(sequence: MidiLoopSequence) {
