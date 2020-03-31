@@ -1,6 +1,6 @@
 // Basic looper test
 import { getInputNames, Input } from "./midiInput";
-import { ChannelVoiceMessage, SystemExclusiveMessage, ControlChangeMessage, ProgramChangeMessage, NoteOnMessage, ChannelVoiceMessageType } from "./midiTypes";
+import { ChannelVoiceMessage, SystemExclusiveMessage, ControlChangeMessage, ProgramChangeMessage, ChannelVoiceMessageType } from "./midiTypes";
 import { getOutputNames, Output } from "./midiOutput";
 import { areArraysEqual } from "../YamahaApi/utils/nodeUtils";
 
@@ -197,9 +197,9 @@ inputs[1].onMidiEvent('cc', (message: ControlChangeMessage) => {
     if (message.channel !== 0) {
         return;
     }
-    if (message.controllerNumber === 0x00 || message.controllerNumber === 0x20) {
-        outputs[1].send(message.changeChannel(outputChannel + 1).getRawData());
-    }
+    // if (message.controllerNumber === 0x00 || message.controllerNumber === 0x20) {
+    outputs[1].send(message.changeChannel(outputChannel + 1).getRawData());
+    // }
 });
 
 inputs[1].onMidiEvent('program', (message: ProgramChangeMessage) => {
