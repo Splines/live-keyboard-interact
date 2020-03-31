@@ -1,6 +1,6 @@
 // Basic looper test
 import { getInputNames, Input } from "./midiInput";
-import { ChannelVoiceMessage, SystemExclusiveMessage } from "./midiTypes";
+import { ChannelVoiceMessage, SystemExclusiveMessage, ControlChangeMessage, ProgramChangeMessage } from "./midiTypes";
 import { getOutputNames, Output } from "./midiOutput";
 import { areArraysEqual } from "../YamahaApi/utils/nodeUtils";
 
@@ -19,12 +19,13 @@ interface MidiLoopSequence extends Array<MidiLoopItem> { };
 interface MidiLoopItem {
     message: ChannelVoiceMessage;
     time: number // unix time of record in milliseconds (ms)
+    deltaTime: number // number of milliseconds since the previous item
 }
 
 let recording = false;
 let outputChannel = -1; // Song MIDI channels (16 in total)
 let recordingStartTime = -1; // ms
-let sequenceDuration = -1; // ms
+let sequenceDuration = 0; // ms
 let nextCalculatedStopTime = -1; // ms
 let currentSequence: MidiLoopSequence = [];
 
@@ -85,6 +86,7 @@ inputs[1].onMidiEvent('sysex', (message: SystemExclusiveMessage) => {
 });
 
 function startRecording() {
+    recording = true;
     if (outputChannel < 0) {
         // first time starting the recorder
         recordingStartTime = Date.now();
@@ -95,19 +97,18 @@ function startRecording() {
             nextCalculatedStopTime = -1;
             stopRecording();
             if (isVocalHarmonyOn) {
-                startRecording();
+                startRecording(); // start again automatically
             }
         }, calculatedStopDiffTime);
     }
-    recording = true;
 }
 
 function stopRecording() {
+    recording = false;
     if (outputChannel < 0) {
         // first time stopping the recorder
         sequenceDuration = Date.now() - recordingStartTime;
     }
-    recording = false;
     if (nextCalculatedStopTime > 0 && Date.now() < nextCalculatedStopTime) {
         // user pressed Vocal harmony OFF before calculated end
         // don't stop this sequence yet
@@ -116,38 +117,36 @@ function stopRecording() {
     }
     if (currentSequence.length) { // TODO: change to: if there is no NOTE_ON message
         outputChannel += 1;
-        startLooping(currentSequence, outputChannel);
+        console.log('outputChannel + 1 ========================================= +1');
+        startLooping(currentSequence);
         currentSequence = [];
     } else {
         console.log("Sequence doesn't contain any NOTE_ON messages, so won't start the looper");
     }
 }
 
-function startLooping(sequence: MidiLoopSequence, channel: number) {
+function startLooping(sequence: MidiLoopSequence) {
     if (sequenceDuration <= 0) {
         // should never happen!
         return console.error('The sequence duration is not set while attempting to start looping.');
     }
-    if (recordingStartTime <= 0) {
-        // should never happen!
-        return console.error('The recording start time is not set while attempting to start looping.');
-    }
-
     console.log('started the looper');
-    for (let i = 0; i < 15; i++) {
-        let sequenceStartTime: number = i * sequenceDuration;
-        sequence.forEach((midiLoopItem: MidiLoopItem, i: number) => {
-            const deltaTime: number = sequence[i - 1]
-                ? midiLoopItem.time - sequence[i - 1].time
-                : (midiLoopItem.time - recordingStartTime) % sequenceDuration;
-            const messageToSend: number[] = midiLoopItem.message.changeChannel(channel).getRawData();
-            setTimeout(() => {
-                outputs[1].send(messageToSend);
-                console.log('sent message: ' + messageToSend);
-            }, deltaTime + sequenceStartTime);
-            sequenceStartTime += deltaTime;
-        });
-    }
+    let timePassed: number = 0;
+    sequence.forEach((midiLoopItem: MidiLoopItem) => {
+        const messageToSend: number[] = midiLoopItem.message.getRawData();
+        startLoopCycle(messageToSend, midiLoopItem.deltaTime + timePassed);
+        timePassed += midiLoopItem.deltaTime;
+    });
+}
+
+function startLoopCycle(messageToSend: number[], scheduleTime: number) {
+    console.log('scheduling for: ' + scheduleTime + ' ms');
+    setTimeout(() => {
+        outputs[1].send(messageToSend);
+        console.log('sent message: ' + messageToSend);
+    }, scheduleTime);
+    // repeat after every sequenceDuration
+    setTimeout(() => startLoopCycle(messageToSend, scheduleTime), sequenceDuration);
 }
 
 // Recording event handler
@@ -162,10 +161,43 @@ inputs[1].onMidiEvent('channel voice message', (message: ChannelVoiceMessage) =>
         return;
     }
     console.log('Channel voice message: ' + message.getRawData());
+    let deltaTime: number = 0; // ms
+    if (!currentSequence.length) { // first MIDI event in this sequence
+        deltaTime = sequenceDuration
+            ? (Date.now() - recordingStartTime) % sequenceDuration
+            : Date.now() - recordingStartTime;
+    } else { // second, third ... MIDI event in this sequence
+        deltaTime = Date.now() - currentSequence[currentSequence.length - 1].time
+    }
     currentSequence.push({
-        message: message,
-        time: Date.now()
+        message: message.changeChannel(outputChannel + 1),
+        time: Date.now(),
+        deltaTime: deltaTime
     });
+});
+
+// Handle voice changes
+inputs[1].onMidiEvent('cc', (message: ControlChangeMessage) => {
+    // we want this to apply for situations when we don't record as well (!)
+    if (message.type === undefined) {
+        return;
+    }
+    if (message.channel !== 0) {
+        return;
+    }
+    if (message.controllerNumber === 0x00 || message.controllerNumber === 0x20) {
+        outputs[1].send(message.changeChannel(outputChannel + 1).getRawData());
+    }
+});
+
+inputs[1].onMidiEvent('program', (message: ProgramChangeMessage) => {
+    if (message.type === undefined) {
+        return;
+    }
+    if (message.channel !== 0) {
+        return;
+    }
+    outputs[1].send(message.changeChannel(outputChannel + 1).getRawData());
 });
 
 /////////////
