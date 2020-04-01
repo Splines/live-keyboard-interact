@@ -94,6 +94,7 @@ export class Input {
                     channelVoiceMessage = polyAftertouchMessage;
                     break;
                 case ChannelVoiceMessageType.CONTROL_CHANGE:
+                    console.log('message[2]: ' + message[2]);
                     const controlChangeMessage = new ControlChangeMessage(channel, message[1], message[2]);
                     this.midiMessageEmitter.emit('cc', controlChangeMessage);
                     channelVoiceMessage = controlChangeMessage;
@@ -115,9 +116,8 @@ export class Input {
                     break;
                 default:
                     channelVoiceMessage = new UndefinedChannelVoiceMessage();
-                    break;
             }
-            this.midiMessageEmitter.emit('channel voice message', channelVoiceMessage)
+            this.midiMessageEmitter.emit('channel voice message', channelVoiceMessage);
             return channelVoiceMessage;
         }
     }
