@@ -21,8 +21,7 @@ export class ChannelVoiceMessage extends MidiMessage {
     }
 
     public changeChannel(channel: number): ChannelVoiceMessage {
-        this.channel = channel;
-        return this;
+        return new ChannelVoiceMessage(this.type as ChannelVoiceMessageType, channel, this.dataBytes);
     }
 
     public getRawData(): number[] {
