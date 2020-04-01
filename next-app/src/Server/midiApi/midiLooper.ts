@@ -1,6 +1,6 @@
 // Basic looper test
 import { getInputNames, Input } from "./midiInput";
-import { ChannelVoiceMessage, SystemExclusiveMessage, ControlChangeMessage, ProgramChangeMessage, ChannelVoiceMessageType } from "./midiTypes";
+import { ChannelVoiceMessage, SystemExclusiveMessage, ControlChangeMessage, ProgramChangeMessage, ChannelVoiceMessageType, MidiMessage } from "./midiTypes";
 import { getOutputNames, Output } from "./midiOutput";
 import { areArraysEqual } from "../YamahaApi/utils/nodeUtils";
 
@@ -152,7 +152,7 @@ function startLooping(sequence: MidiLoopSequence) {
 }
 
 function startLoopCycle(messageToSend: number[], scheduleTime: number) {
-    console.log('scheduling for: ' + scheduleTime + ' ms');
+    // console.log('scheduling for: ' + scheduleTime + ' ms');
     setTimeout(() => {
         outputs[1].send(messageToSend);
         console.log('sent message: ' + messageToSend);
@@ -198,7 +198,7 @@ inputs[1].onMidiEvent('cc', (message: ControlChangeMessage) => {
         return;
     }
     // if (message.controllerNumber === 0x00 || message.controllerNumber === 0x20) {
-    outputs[1].send(message.changeChannel(outputChannel + 1).getRawData());
+    sendToOpenSongChannels(message);
     // }
 });
 
@@ -209,8 +209,14 @@ inputs[1].onMidiEvent('program', (message: ProgramChangeMessage) => {
     if (message.channel !== 0) {
         return;
     }
-    outputs[1].send(message.changeChannel(outputChannel + 1).getRawData());
+    sendToOpenSongChannels(message);
 });
+
+function sendToOpenSongChannels(message: ChannelVoiceMessage): void {
+    for (let i = outputChannel + 1; i <= 15; i++) { // 16 MIDI Channels
+        outputs[1].send(message.changeChannel(i).getRawData());
+    }
+}
 
 /////////////
 // Utility //
