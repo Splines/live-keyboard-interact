@@ -2,7 +2,7 @@
 import { getInputNames, Input } from "./midiInput";
 import { ChannelVoiceMessage, SystemExclusiveMessage, ControlChangeMessage, ProgramChangeMessage, ChannelVoiceMessageType, MidiMessage } from "./midiTypes";
 import { getOutputNames, Output } from "./midiOutput";
-import { areArraysEqual } from "../YamahaApi/utils/nodeUtils";
+import { areArraysEqual, decArrayToHexDisplay } from "../YamahaApi/utils/nodeUtils";
 
 ////////////
 // Device //
@@ -142,7 +142,7 @@ function startLooping(sequence: MidiLoopSequence) {
         // should never happen!
         return console.error('The sequence duration is not set while attempting to start looping.');
     }
-    console.log('started the looper');
+    console.log('~~~ started the looper ~~~');
     let timePassed: number = 0;
     sequence.forEach((midiLoopItem: MidiLoopItem) => {
         const messageToSend: number[] = midiLoopItem.message.getRawData();
@@ -155,7 +155,7 @@ function startLoopCycle(messageToSend: number[], scheduleTime: number) {
     // console.log('scheduling for: ' + scheduleTime + ' ms');
     setTimeout(() => {
         outputs[1].send(messageToSend);
-        console.log('sent message: ' + messageToSend);
+        console.log('sent message: ' + decArrayToHexDisplay(messageToSend));
     }, scheduleTime);
     // repeat after every sequenceDuration
     setTimeout(() => startLoopCycle(messageToSend, scheduleTime), sequenceDuration);
@@ -172,21 +172,38 @@ inputs[1].onMidiEvent('channel voice message', (message: ChannelVoiceMessage) =>
     if (message.channel !== 0) {
         return;
     }
-    console.log('Channel voice message: ' + message.getRawData());
-    let deltaTime: number = 0; // ms
-    if (!currentSequence.length) { // first MIDI event in this sequence
-        deltaTime = sequenceDuration
-            ? (Date.now() - recordingStartTime) % sequenceDuration
-            : Date.now() - recordingStartTime;
-    } else { // second, third ... MIDI event in this sequence
-        deltaTime = Date.now() - currentSequence[currentSequence.length - 1].time
-    }
+    console.log('Channel voice message (R1): ' + decArrayToHexDisplay(message.getRawData()));
     currentSequence.push({
         message: message.changeChannel(outputChannel + 1),
         time: Date.now(),
-        deltaTime: deltaTime
+        deltaTime: calculateDeltaTime()
     });
 });
+
+// inputs[1].onMidiEvent('sysex', (message: SystemExclusiveMessage) => {
+//     if (!recording) {
+//         return;
+//     }
+//     if (message.type === undefined) {
+//         return;
+//     }
+//     console.log('SysEx message: ' + message);
+//     currentSequence.push({
+//         message: message,
+//         time: Date.now(),
+//         deltaTime: calculateDeltaTime()
+//     })
+// });
+
+function calculateDeltaTime(): number {
+    if (!currentSequence.length) { // first MIDI event in this sequence
+        return sequenceDuration
+            ? (Date.now() - recordingStartTime) % sequenceDuration
+            : Date.now() - recordingStartTime;
+    } else { // second, third ... MIDI event in this sequence
+        return Date.now() - currentSequence[currentSequence.length - 1].time
+    }
+}
 
 // Handle voice changes
 inputs[1].onMidiEvent('cc', (message: ControlChangeMessage) => {
@@ -197,6 +214,7 @@ inputs[1].onMidiEvent('cc', (message: ControlChangeMessage) => {
     if (message.channel !== 0) {
         return;
     }
+    console.log('Control Change message for next song channels (R1): ' + decArrayToHexDisplay(message.getRawData()));
     // if (message.controllerNumber === 0x00 || message.controllerNumber === 0x20) {
     sendToOpenSongChannels(message);
     // }
@@ -217,15 +235,3 @@ function sendToOpenSongChannels(message: ChannelVoiceMessage): void {
         outputs[1].send(message.changeChannel(i).getRawData());
     }
 }
-
-/////////////
-// Utility //
-/////////////
-// function decArrayToHexDisplay(decArray: number[]): string {
-//     let hex: string = '';
-//     decArray.forEach((value: number) => {
-//         hex += value.toString(16);
-//         hex += ' ';
-//     });
-//     return hex;
-// }

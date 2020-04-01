@@ -50,6 +50,15 @@ export function decToHexNumbers(dec: number, byteLength: number): number[] {
     return hexNumbers;
 }
 
+export function decArrayToHexDisplay(decArray: number[]): string {
+    let hex: string = '';
+    decArray.forEach((value: number) => {
+        hex += value.toString(16).padStart(2, '0');
+        hex += ' ';
+    });
+    return hex;
+}
+
 export function hexArrayToDec(hex: number[]): number {
     let hexString: string = '';
     hex.forEach((value: number) => {
