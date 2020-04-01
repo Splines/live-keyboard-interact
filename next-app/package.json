@@ -22,6 +22,7 @@
   },
   "scripts": {
     "dev": "NODE_ENV=development ts-node --project tsconfig.server.json src/Server/server.ts",
+    "dev:midiLooper": "ts-node --project tsconfig.midiLooper.json src/Server/midiApi/midiLooper.ts",
     "build:server": "tsc --project tsconfig.server.json",
     "build:next": "next build",
     "build": "npm run build:next && npm run build:server",
