@@ -26,7 +26,6 @@ export class Output {
     close() {
         this.output.closePort();
     }
-
 }
 
 export function getOutputNames(): string[] {

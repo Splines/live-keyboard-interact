@@ -1,6 +1,6 @@
 // Basic looper test
 import { getInputNames, Input } from "./midiInput";
-import { ChannelVoiceMessage, SystemExclusiveMessage, ControlChangeMessage, ProgramChangeMessage, ChannelVoiceMessageType, MidiMessage } from "./midiTypes";
+import { ChannelVoiceMessage, SystemExclusiveMessage, ControlChangeMessage, ProgramChangeMessage, ChannelVoiceMessageType } from "./midiTypes";
 import { getOutputNames, Output } from "./midiOutput";
 import { areArraysEqual, decArrayToHexDisplay } from "../YamahaApi/utils/nodeUtils";
 
