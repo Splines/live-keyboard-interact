@@ -4,12 +4,14 @@ import { ChannelVoiceMessage, SystemExclusiveMessage, ControlChangeMessage, Prog
 import { getOutputNames, Output } from "./midiOutput";
 import { areArraysEqual, decArrayToHexDisplay } from "../YamahaApi/utils/nodeUtils";
 
-////////////
-// Device //
-////////////
+/////////////
+// Devices //
+/////////////
 let inputs: Input[] = [];
 let outputs: Output[] = [];
 init();
+const inputIndex = 1;
+const outputIndex = 1;
 
 ///////////////
 // Recording //
@@ -57,7 +59,7 @@ function init() {
 }
 
 // React to keyboard buttons
-inputs[1].onMidiEvent('sysex', (message: SystemExclusiveMessage) => {
+inputs[inputIndex].onMidiEvent('sysex', (message: SystemExclusiveMessage) => {
     // Check Vocal Harmony button
     let foundVocalHarmony = false;
     if (areArraysEqual(message.rawData, VOCAL_HARMONY_ON)) {
@@ -154,7 +156,7 @@ function startLooping(sequence: MidiLoopSequence) {
 function startLoopCycle(messageToSend: number[], scheduleTime: number) {
     // console.log('scheduling for: ' + scheduleTime + ' ms');
     setTimeout(() => {
-        outputs[1].send(messageToSend);
+        outputs[outputIndex].send(messageToSend);
         console.log('sent message: ' + decArrayToHexDisplay(messageToSend));
     }, scheduleTime);
     // repeat after every sequenceDuration
@@ -162,7 +164,7 @@ function startLoopCycle(messageToSend: number[], scheduleTime: number) {
 }
 
 // Recording event handler
-inputs[1].onMidiEvent('channel voice message', (message: ChannelVoiceMessage) => {
+inputs[inputIndex].onMidiEvent('channel voice message', (message: ChannelVoiceMessage) => {
     if (!recording) {
         return;
     }
@@ -180,7 +182,7 @@ inputs[1].onMidiEvent('channel voice message', (message: ChannelVoiceMessage) =>
     });
 });
 
-// inputs[1].onMidiEvent('sysex', (message: SystemExclusiveMessage) => {
+// inputs[inputIndex].onMidiEvent('sysex', (message: SystemExclusiveMessage) => {
 //     if (!recording) {
 //         return;
 //     }
@@ -206,7 +208,7 @@ function calculateDeltaTime(): number {
 }
 
 // Handle voice changes
-inputs[1].onMidiEvent('cc', (message: ControlChangeMessage) => {
+inputs[inputIndex].onMidiEvent('cc', (message: ControlChangeMessage) => {
     // we want this to apply for situations when we don't record as well (!)
     if (message.type === undefined) {
         return;
@@ -220,7 +222,7 @@ inputs[1].onMidiEvent('cc', (message: ControlChangeMessage) => {
     // }
 });
 
-inputs[1].onMidiEvent('program', (message: ProgramChangeMessage) => {
+inputs[inputIndex].onMidiEvent('program', (message: ProgramChangeMessage) => {
     if (message.type === undefined) {
         return;
     }
@@ -232,6 +234,6 @@ inputs[1].onMidiEvent('program', (message: ProgramChangeMessage) => {
 
 function sendToOpenSongChannels(message: ChannelVoiceMessage): void {
     for (let i = outputChannel + 1; i <= 15; i++) { // 16 MIDI Channels
-        outputs[1].send(message.changeChannel(i).getRawData());
+        outputs[outputIndex].send(message.changeChannel(i).getRawData());
     }
 }
