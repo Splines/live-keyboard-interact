@@ -1,6 +1,6 @@
 // Basic looper test
 import { getInputNames, Input } from "./midiInput";
-import { ChannelVoiceMessage, SystemExclusiveMessage, ControlChangeMessage, ProgramChangeMessage, ChannelVoiceMessageType, SystemRealTimeMessageType, SystemRealTimeMessage } from "./midiTypes";
+import { ChannelVoiceMessage, SystemExclusiveMessage, ControlChangeMessage, ProgramChangeMessage, ChannelVoiceMessageType, SystemRealTimeMessageType, SystemRealTimeMessage, NoteOnMessage } from "./midiTypes";
 import { getOutputNames, Output } from "./midiOutput";
 import { areArraysEqual, decArrayToHexDisplay } from "../YamahaApi/utils/nodeUtils";
 
@@ -25,11 +25,18 @@ interface MidiLoopItem {
 }
 
 let recording = false;
-let outputChannel = -1; // Song MIDI channels (16 in total)
+let recordingChannel = 0; // Song MIDI channels (16 in total)
 let recordingStartTime = -1; // ms
 let sequenceDuration = 0; // ms
 let nextCalculatedStopTime = -1; // ms
-let currentSequence: MidiLoopSequence = [];
+const sequences: MidiLoopSequence[] = new Array(16); // root data structure for recorded sequences
+// const sequences: MidiLoopSequence[] = Array(16).fill([]); // will pas []-Object by reference 😒
+for (let i = 0; i < sequences.length; i++) {
+    sequences[i] = [];
+}
+
+// let currentSequence: MidiLoopSequence = [];
+const missingNoteOffMessages: number[] = [] // note values (first data byte)
 let tempoBpm: number = 120; // bpm
 const sequenceNumberOfBars = 4; // we assume 4/4
 
@@ -72,7 +79,9 @@ inputs[inputIndex].onMidiEvent('sysex', (message: SystemExclusiveMessage) => {
     console.log('tempo (BPM): ' + tempoBpm);
 });
 
+// see more information on how the algorithm works here
 // https://www.psrtutorial.com/forum/index.php/topic,48303.msg378566.html#msg378566
+// http://midi.teragonaudio.com/tech/midifile/ppqn.htm
 function tempoSysExToBpm(tempoBytes: number[]): number {
     const totalTempo: number = (tempoBytes[0] << 21) + (tempoBytes[1] << 14) + (tempoBytes[2] << 7) + tempoBytes[3];
     // return Math.floor(60000000 / totalTempo);
@@ -87,7 +96,7 @@ inputs[inputIndex].onMidiEvent('sysex', (message: SystemExclusiveMessage) => {
         foundVocalHarmony = true;
         console.log('=== Vocal harmony on');
         isVocalHarmonyOn = true;
-        if (outputChannel >= 0) {
+        if (recordingChannel !== 0) {
             // not first time starting the recorder
             startRecording();
         }
@@ -95,14 +104,14 @@ inputs[inputIndex].onMidiEvent('sysex', (message: SystemExclusiveMessage) => {
         foundVocalHarmony = true;
         console.log('=== Vocal harmony off');
         isVocalHarmonyOn = false;
-        if (outputChannel >= 0) {
+        if (recordingChannel !== 0) {
             // not first time stopping the recorder
             stopRecording();
         }
     }
 
     // Check Effect button
-    // TODO: add functionality later on for playing without recording to effect button
+    // TODO: add functionality later to this button
     if (!foundVocalHarmony) {
         if (areArraysEqual(message.rawData, EFFECT_ON)) {
             console.log('=== Effect on');
@@ -123,27 +132,31 @@ inputs[inputIndex].onMidiEvent('sys real time', (message: SystemRealTimeMessage)
 function startRecording() {
     console.log('========================================');
     console.log('========================================');
-    console.log('=== recorder started ===');
+    console.log('=== recorder is on ;) ===');
     console.log('========================================');
     console.log('========================================');
     recording = true;
-    if (outputChannel < 0) {
+    if (recordingChannel === 0) {
         // first time starting the recorder
         recordingStartTime = Date.now();
         const beatDurationMs: number = 60000 / tempoBpm;
         sequenceDuration = sequenceNumberOfBars * 4 * beatDurationMs;
-        setTimeout(stopRecording, sequenceDuration);
-    } else if (nextCalculatedStopTime < 0) { // only schedule a next stop time, if there isn't already one scheduled
-        const calculatedStopDiffTime: number = sequenceDuration - ((Date.now() - recordingStartTime) % sequenceDuration);
-        nextCalculatedStopTime = Date.now() + calculatedStopDiffTime;
-        setTimeout(() => {
-            nextCalculatedStopTime = -1;
-            stopRecording();
-            if (isVocalHarmonyOn) {
-                startRecording(); // start again automatically
-            }
-        }, calculatedStopDiffTime);
+        scheduleLooperRestart(sequenceDuration);
+    } else if (nextCalculatedStopTime < 0) {
+        // only schedule a next stop, if there isn't already one scheduled
+        scheduleLooperRestart(sequenceDuration - ((Date.now() - recordingStartTime) % sequenceDuration));
     }
+}
+
+function scheduleLooperRestart(deltaTime: number): void {
+    nextCalculatedStopTime = Date.now() + deltaTime;
+    setTimeout(() => {
+        nextCalculatedStopTime = -1;
+        stopRecording();
+        if (isVocalHarmonyOn) {
+            startRecording(); // directly start again with recording of a new sequence
+        }
+    }, deltaTime);
 }
 
 function stopRecording() {
@@ -156,26 +169,20 @@ function stopRecording() {
         // user pressed vocal harmony OFF before calculated end
         // don't stop this sequence yet
         console.log('User pressed Vocal harmony OFF before calculated end was reached');
-        return;
-    }
-    if (containsAnyNoteMessage(currentSequence)) {
-        outputChannel += 1;
+    } else if (containsAnyNoteMessage(sequences[recordingChannel])) {
+        recordingChannel += 1; // set recording channel as fast as possible for next sequence
         console.log('==============================================');
         console.log('==============================================');
         console.log('==============================================');
-        console.log('==============================================');
-        console.log('==============================================');
-        console.log('outputChannel + 1 ========================================= +1');
-        console.log('==============================================');
+        console.log('RecordingChannel + 1 ========================================= +1');
         console.log('==============================================');
         console.log('==============================================');
         console.log('==============================================');
-        console.log('==============================================');
-        startLooping(currentSequence);
+        startLoopingSequence(recordingChannel - 1);
     } else {
         console.log("Sequence doesn't contain any NOTE_ON/OFF messages, so won't start the looper");
+        sequences[recordingChannel] = [];
     }
-    currentSequence = [];
 }
 
 function containsAnyNoteMessage(sequence: MidiLoopSequence): boolean {
@@ -188,29 +195,42 @@ function containsAnyNoteMessage(sequence: MidiLoopSequence): boolean {
     });
 }
 
-function startLooping(sequence: MidiLoopSequence) {
+/**
+ * 
+ * @param i Sequence index in sequences array
+ * @param sequence 
+ */
+function startLoopingSequence(sequenceIndex: number) {
     if (sequenceDuration <= 0) {
         // should never happen!
         return console.error('The sequence duration is not set while attempting to start looping.');
     }
-    console.log('~~~ started the looper ~~~');
+    // this is when new changes in already registered sequences are recognized by the looper
+    const sequenceToLoop = sequences[sequenceIndex];
+    setTimeout(() => startLoopingSequence(sequenceIndex), sequenceDuration); // actual looping
+    // console.log(`~~~ started playback for channel ${sequenceIndex} ~~~`);
     let timePassed: number = 0;
-    sequence.forEach((midiLoopItem: MidiLoopItem) => {
+    for (let i = 0; i < sequenceToLoop.length; i++) {
+        const midiLoopItem: MidiLoopItem = sequenceToLoop[i];
         const messageToSend: number[] = midiLoopItem.message.getRawData();
-        startLoopCycle(messageToSend, midiLoopItem.deltaTime + timePassed);
+        setTimeout(() => {
+            outputs[outputIndex].send(messageToSend);
+            console.log('sent message: ' + decArrayToHexDisplay(messageToSend));
+        }, midiLoopItem.deltaTime + timePassed);
+        // startLoopCycle(messageToSend, midiLoopItem.deltaTime + timePassed);
         timePassed += midiLoopItem.deltaTime;
-    });
+    }
 }
 
-function startLoopCycle(messageToSend: number[], scheduleTime: number) {
-    // console.log('scheduling for: ' + scheduleTime + ' ms');
-    setTimeout(() => {
-        outputs[outputIndex].send(messageToSend);
-        console.log('sent message: ' + decArrayToHexDisplay(messageToSend));
-    }, scheduleTime);
-    // repeat after every sequenceDuration
-    setTimeout(() => startLoopCycle(messageToSend, scheduleTime), sequenceDuration);
-}
+// function startLoopCycle(messageToSend: number[], scheduleTime: number) {
+//     // console.log('scheduling for: ' + scheduleTime + ' ms');
+//     setTimeout(() => {
+//         outputs[outputIndex].send(messageToSend);
+//         console.log('sent message: ' + decArrayToHexDisplay(messageToSend));
+//     }, scheduleTime);
+//     // repeat after every sequenceDuration
+//     setTimeout(() => startLoopCycle(messageToSend, scheduleTime), sequenceDuration);
+// }
 
 // Recording event handler
 inputs[inputIndex].onMidiEvent('channel voice message', (message: ChannelVoiceMessage) => {
@@ -224,10 +244,18 @@ inputs[inputIndex].onMidiEvent('channel voice message', (message: ChannelVoiceMe
         return;
     }
     console.log('Channel voice message (R1): ' + decArrayToHexDisplay(message.getRawData()));
-    currentSequence.push({
-        message: message.changeChannel(outputChannel + 1),
+    if (message.type as ChannelVoiceMessageType === ChannelVoiceMessageType.NOTE_ON
+        && (message as NoteOnMessage).attackVelocity === 0) { // NOTE_OF message on Tyros
+        if (missingNoteOffMessages.includes((message as NoteOnMessage).note)) {
+            // Put NOTE_OFF message to beginning of last sequence
+            console.log('found unhandled NOTE_OFF!');
+        }
+    }
+    // TODO: what if we exceed 16 MIDI channels? --> Prevent TypeError (cannot read property of undefined)!!!
+    sequences[recordingChannel].push({
+        message: message.changeChannel(recordingChannel),
         time: Date.now(),
-        deltaTime: calculateDeltaTime()
+        deltaTime: calculateDeltaTime(sequences[recordingChannel])
     });
 });
 
@@ -246,7 +274,7 @@ inputs[inputIndex].onMidiEvent('channel voice message', (message: ChannelVoiceMe
 //     })
 // });
 
-function calculateDeltaTime(): number {
+function calculateDeltaTime(currentSequence: MidiLoopSequence): number {
     if (!currentSequence.length) { // first MIDI event in this sequence
         return sequenceDuration
             ? (Date.now() - recordingStartTime) % sequenceDuration
@@ -265,7 +293,7 @@ inputs[inputIndex].onMidiEvent('cc', (message: ControlChangeMessage) => {
     if (message.channel !== 0) {
         return;
     }
-    console.log('Control Change message for next song channels (R1): ' + decArrayToHexDisplay(message.getRawData()));
+    console.log('Control change message for next song channels (R1): ' + decArrayToHexDisplay(message.getRawData()));
     // if (message.controllerNumber === 0x00 || message.controllerNumber === 0x20) {
     sendToOpenSongChannels(message);
     // }
@@ -278,11 +306,12 @@ inputs[inputIndex].onMidiEvent('program', (message: ProgramChangeMessage) => {
     if (message.channel !== 0) {
         return;
     }
+    console.log('Program change message for next song channels (R1^): ' + decArrayToHexDisplay(message.getRawData()));
     sendToOpenSongChannels(message);
 });
 
 function sendToOpenSongChannels(message: ChannelVoiceMessage): void {
-    for (let i = outputChannel + 1; i <= 15; i++) { // 16 MIDI Channels
+    for (let i = recordingChannel; i <= 15; i++) { // 16 MIDI Channels
         outputs[outputIndex].send(message.changeChannel(i).getRawData());
     }
 }
@@ -308,3 +337,14 @@ function sendToOpenSongChannels(message: ChannelVoiceMessage): void {
 //         console.log('~~ System Real time msg: ' + decArrayToHexDisplay(rawData));
 //     }
 // });
+
+// function outputSequence() {
+//     sequences.forEach((sequence: MidiLoopSequence) => {
+//         console.log('~= Sequence ~=');
+//         sequence.forEach((midiLoopItem: MidiLoopItem) => {
+//             console.log('=== Midi Loop Item');
+//             const vals = (Object.keys(midiLoopItem) as Array<keyof MidiLoopItem>).map(function (key) { return key + ": " + midiLoopItem[key]; });
+//             console.log(vals.join(', '));
+//         });
+//     });
+// }
