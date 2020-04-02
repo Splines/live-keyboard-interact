@@ -2,6 +2,9 @@
 import easymidi = require('easymidi');
 import { RegIndexMapping, RegFilenameCallback, MidiMessageCallback } from './serverApi';
 
+const inputIndex = 0; // MIDI A via USB
+const midiSongChannel = 0; // [MIDI on Tyros: 'MIDI A/USB CH1' for part 'SONG CH1']
+
 // interface SysEx {
 //     bytes: number[];
 // }
@@ -79,8 +82,8 @@ function initMidi() {
         console.error('No Yamaha midi device found!');
         process.exit(1);
     }
-    const input = new easymidi.Input(inputs[0]);
-    console.log(`Connected to: ${inputs[0]}`);
+    const input = new easymidi.Input(inputs[inputIndex]);
+    console.log(`Connected: ${inputs[inputIndex]}`);
 
     return input;
 }
@@ -98,8 +101,7 @@ function startRegChangeHandling(inputMidi: any, regIndexMap: RegIndexMapping[], 
 
     // Log bank select (control change) and program change messages
     inputMidi.on('cc', (msg: ControlChange) => {
-        // channel must be 13 [MIDI settings on Tyros: 'MIDI A/USB CH14' for part 'SONG CH1']
-        if (msg.channel !== 13) { return; }
+        if (msg.channel !== midiSongChannel) { return; }
         switch (msg.controller) {
             case 0: // Bank Select MSB
                 msbValues.push(msg.value);
@@ -114,8 +116,7 @@ function startRegChangeHandling(inputMidi: any, regIndexMap: RegIndexMapping[], 
 
     // Receive program change messages.
     inputMidi.on('program', (msg: ProgramMessage) => {
-        // channel must be 13
-        if (msg.channel !== 13) { return; }
+        if (msg.channel !== midiSongChannel) { return; }
 
         // 8 Registration Memory buttons
         if (!(msg.number >= 0 && msg.number <= 7)) { return; }
