@@ -22,11 +22,11 @@
   },
   "scripts": {
     "dev": "NODE_ENV=development ts-node --project tsconfig.server.json src/Server/server.ts",
-    "dev:midiLooper": "ts-node --project tsconfig.midiLooper.json src/Server/midiApi/midiLooper.ts",
+    "dev:midiLooper": "nodemon --config nodemon.midiLooper.json",
     "build:server": "tsc --project tsconfig.server.json",
     "build:next": "next build",
     "build": "npm run build:next && npm run build:server",
-    "start": "NODE_ENV=production node dist/next-app/src/Server/server.js"
+    "start": "NODE_ENV=production node dist/next-app/src/Server/server.js 2> live-keyboard-interact-error.log"
   },
   "devDependencies": {
     "@types/express": "^4.17.3",
@@ -39,6 +39,7 @@
     "@types/react-dom": "latest",
     "@types/socket.io": "^2.1.4",
     "@types/socket.io-client": "^1.4.32",
+    "nodemon": "^2.0.2",
     "ts-node": "^8.8.1",
     "typescript": "latest"
   }
