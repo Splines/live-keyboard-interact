@@ -1,5 +1,6 @@
 export class MidiMessage {
-    type: ChannelVoiceMessageType | SystemExclusiveMessageType | undefined; // TODO: extend later
+    type: ChannelVoiceMessageType | SystemExclusiveMessageType | SystemRealTimeMessageType | SystemCommonMessageType | undefined; // TODO: extend later
+    rawData?: number[];
 
     constructor(type: ChannelVoiceMessageType | SystemExclusiveMessageType | undefined) {
         this.type = type;

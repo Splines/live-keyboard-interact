@@ -66,11 +66,21 @@ export class Input {
                 this.midiMessageEmitter.emit('sysex', sysExMessage);
                 return sysExMessage;
             } else if (type in SystemCommonMessageType) {
-                // console.log('system common: "' + messageHex + '"');
+                const sysCommonMessage: SystemCommonMessage = {
+                    rawData: message,
+                    type: type
+                };
+                this.midiMessageEmitter.emit('sys common', sysCommonMessage);
+                return sysCommonMessage;
             } else if (type in SystemRealTimeMessageType) {
-                // console.log('system real time: "' + messageHex + '"');
+                const sysRealTimeMessage: SystemRealTimeMessage = {
+                    rawData: message,
+                    type: type
+                }
+                this.midiMessageEmitter.emit('sys real time', sysRealTimeMessage);
+                return sysRealTimeMessage;
             }
-            return { type: undefined };
+            return { type: undefined, rawData: message };
         } else { // Channel message
             // TODO: deal with running status (no status byte in subsequenct messages)
             const type = message[0] >> 4; // move upper 4 bits to lower 4 bits
