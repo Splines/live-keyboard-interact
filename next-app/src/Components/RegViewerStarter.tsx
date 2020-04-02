@@ -23,7 +23,7 @@ const RegViewerStarter = () => {
     const startRegViewer = () => {
         console.log('now subscribing to reg change');
         subscribeRegChange((newRegFilename: string) => {
-            console.log('new reg filename: ' + newRegFilename);
+            console.log(`selected first Registration Memory button of .RGT file ${newRegFilename}`);
             setCurrentReg(newRegFilename);
             const url = `/pdfs/${newRegFilename}.pdf`;
             open(encodeURIComponent(url));
