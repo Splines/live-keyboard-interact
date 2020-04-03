@@ -12,8 +12,8 @@ export class MidiMessage {
 ////////////////////////////
 // http://www.somascape.org/midi/tech/spec.html#chanmsgs
 export class ChannelVoiceMessage extends MidiMessage {
-    channel: number;
-    dataBytes: number[];
+    readonly channel: number;
+    readonly dataBytes: number[];
 
     constructor(type: ChannelVoiceMessageType, channel: number, dataBytes: number[]) {
         super(type);
@@ -22,7 +22,7 @@ export class ChannelVoiceMessage extends MidiMessage {
     }
 
     public changeChannel(channel: number): ChannelVoiceMessage {
-        return new ChannelVoiceMessage(this.type as ChannelVoiceMessageType, channel, this.dataBytes);
+        return Object.assign(this, {channel: channel}); // shallow copy
     }
 
     public getRawData(): number[] {
