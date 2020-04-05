@@ -1,6 +1,6 @@
 // Basic looper test
 import { getInputNames, Input } from "./midiInput";
-import { ChannelVoiceMessage, SystemExclusiveMessage, ControlChangeMessage, ProgramChangeMessage, ChannelVoiceMessageType, SystemRealTimeMessageType, SystemRealTimeMessage, NoteOnMessage } from "./midiTypes";
+import { ChannelVoiceMessage, SystemExclusiveMessage, ControlChangeMessage, ProgramChangeMessage, ChannelVoiceMessageType, SystemRealTimeMessageType, SystemRealTimeMessage, NoteOnMessage, MidiMessage, SystemExclusiveMessageType, SystemCommonMessageType, SystemCommonMessage } from "./midiTypes";
 import { getOutputNames, Output } from "./midiOutput";
 import { areArraysEqual, decArrayToHexDisplay } from "../YamahaApi/utils/nodeUtils";
 
@@ -28,12 +28,21 @@ let recording = false;
 let recordingChannel = 0; // Song MIDI channels (16 in total)
 let recordingStartTime = -1; // ms
 let sequenceDuration = 0; // ms
-let nextCalculatedStopTime = -1; // ms
+// let nextCalculatedStopTime = -1; // ms
 const sequences: MidiLoopSequence[] = new Array(16); // root data structure for recorded sequences
 // const sequences: MidiLoopSequence[] = Array(16).fill([]); // will pass []-Object by reference 😒
 for (let i = 0; i < sequences.length; i++) {
     sequences[i] = [];
 }
+
+// standard: one sequence is 4 measures long --> can't be changed while playing
+const sequenceLengthInMeasures = 4; // TODO: user should be able to change this
+const numeratorTimeSignature = 4; // TODO: user should be able to change this
+const denominatorTimeSignature = 4; // TODO: user should be able to change this
+// how many quarter notes fit in one measure?
+const quarterNotesPerMeasure = (numeratorTimeSignature * 4) / denominatorTimeSignature;
+const quarterNotesPerSequence = quarterNotesPerMeasure * sequenceLengthInMeasures;
+const midiTicksPerSequence = quarterNotesPerSequence * 24; // 24 MIDI Clock messages are sent per quarter note
 
 // let currentSequence: MidiLoopSequence = [];
 // TODO: add concept on how to delete missing Note off messages that stay too long in this array
@@ -127,6 +136,7 @@ inputs[inputIndex].onMidiEvent('sysex', (message: SystemExclusiveMessage) => {
 
 inputs[inputIndex].onMidiEvent('sys real time', (message: SystemRealTimeMessage) => {
     if (message.type as SystemRealTimeMessageType === SystemRealTimeMessageType.START) {
+        recordingStartTime = Date.now();
         startRecording();
     }
 });
@@ -138,36 +148,33 @@ function startRecording() {
     console.log('========================================');
     console.log('========================================');
     recording = true;
-    if (recordingChannel === 0) {
-        // first time starting the recorder
-        recordingStartTime = Date.now();
-        const beatDurationMs: number = 60000 / tempoBpm;
-        sequenceDuration = sequenceNumberOfBars * 4 * beatDurationMs;
-        scheduleLooperRestart(sequenceDuration);
-    } else if (nextCalculatedStopTime < 0) {
-        // only schedule a next stop, if there isn't already one scheduled
-        scheduleLooperRestart(sequenceDuration - ((Date.now() - recordingStartTime) % sequenceDuration));
-    }
+    // if (recordingChannel === 0) {
+    // first time starting the recorder
+    // recordingStartTime = Date.now();
+    //     // const beatDurationMs: number = 60000 / tempoBpm;
+    //     // sequenceDuration = sequenceNumberOfBars * 4 * beatDurationMs;
+    //     // scheduleLooperRestart(sequenceDuration);
+    // }
+    // else if (nextCalculatedStopTime < 0) {
+    //     // only schedule a next stop, if there isn't already one scheduled
+    //     scheduleLooperRestart(sequenceDuration - ((Date.now() - recordingStartTime) % sequenceDuration));
+    // }
 }
 
-function scheduleLooperRestart(deltaTime: number): void {
-    nextCalculatedStopTime = Date.now() + deltaTime;
-    setTimeout(() => {
-        nextCalculatedStopTime = -1;
-        stopRecording();
-        if (isVocalHarmonyOn) {
-            startRecording(); // directly start again with recording of a new sequence
-        }
-    }, deltaTime);
-}
+// function scheduleLooperRestart(deltaTime: number): void {
+//     nextCalculatedStopTime = Date.now() + deltaTime;
+//     setTimeout(() => {
+//         nextCalculatedStopTime = -1;
+//         stopRecording();
+//         if (isVocalHarmonyOn) {
+//             startRecording(); // directly start again with recording of a new sequence
+//         }
+//     }, deltaTime);
+// }
 
 function stopRecording() {
     recording = false;
-    // if (outputChannel < 0) {
-    //     // first time stopping the recorder
-    //     sequenceDuration = Date.now() - recordingStartTime;
-    // }
-    if (nextCalculatedStopTime > 0 && Date.now() < nextCalculatedStopTime) {
+    if (midiTicksCount !== midiTicksPerSequence) {
         // user pressed vocal harmony OFF before calculated end
         // don't stop this sequence yet
         console.log('User pressed Vocal harmony OFF before calculated end was reached');
@@ -180,7 +187,8 @@ function stopRecording() {
         console.log('==============================================');
         console.log('==============================================');
         console.log('==============================================');
-        startLoopingSequence(recordingChannel - 1);
+        console.log('starting looper for sequence: ' + (recordingChannel - 1));
+        playSequence(recordingChannel - 1);
         for (let i = 0; i < sequences[recordingChannel - 1].length; i++) {
             const midiLoopItem: MidiLoopItem = sequences[recordingChannel - 1][i];
             if ((midiLoopItem.message as ChannelVoiceMessage).type === ChannelVoiceMessageType.NOTE_ON) {
@@ -213,19 +221,43 @@ function containsAnyNoteMessage(sequence: MidiLoopSequence): boolean {
     });
 }
 
+let midiTicksCount = 0; // 24 messages are sent per quarter note
+listenToMidiClock();
+function listenToMidiClock() {
+    inputs[inputIndex].onMidiEvent('sys real time', (message: SystemRealTimeMessage) => {
+        if (message.type === SystemRealTimeMessageType.TIMING_CLOCK) {
+            midiTicksCount += 1;
+            if (midiTicksCount === midiTicksPerSequence) {
+                console.log('============================= SEQUENCE CUT =============================');
+                sequenceDuration = Date.now() - recordingStartTime;
+                for (let i = 0; i < recordingChannel; i++) {
+                    console.log('start playing sequence: ' + i);
+                    playSequence(i);
+                }
+                stopRecording();
+                recordingStartTime = Date.now();
+                if (isVocalHarmonyOn) {
+                    startRecording();
+                }
+                midiTicksCount = 0; // place this after stopRecording (!)
+            }
+        }
+    });
+}
+
 /**
  * 
  * @param i Sequence index in sequences array
  * @param sequence 
  */
-function startLoopingSequence(sequenceIndex: number) {
-    if (sequenceDuration <= 0) {
-        // should never happen!
-        return console.error('The sequence duration is not set while attempting to start looping.');
-    }
+function playSequence(sequenceIndex: number) {
+    // if (sequenceDuration <= 0) {
+    //     // should never happen!
+    //     return console.error('The sequence duration is not set while attempting to start looping.');
+    // }
     // this is when new changes in already registered sequences are recognized by the looper
     const sequenceToLoop = sequences[sequenceIndex];
-    setTimeout(() => startLoopingSequence(sequenceIndex), sequenceDuration); // actual looping
+    // setTimeout(() => startLoopingSequence(sequenceIndex), sequenceDuration); // actual looping --> changed to MIDI clock
     // console.log(`~~~ started playback for channel ${sequenceIndex} ~~~`);
     let timePassed: number = 0;
     for (let i = 0; i < sequenceToLoop.length; i++) {
@@ -239,16 +271,6 @@ function startLoopingSequence(sequenceIndex: number) {
         timePassed += midiLoopItem.deltaTime;
     }
 }
-
-// function startLoopCycle(messageToSend: number[], scheduleTime: number) {
-//     // console.log('scheduling for: ' + scheduleTime + ' ms');
-//     setTimeout(() => {
-//         outputs[outputIndex].send(messageToSend);
-//         console.log('sent message: ' + decArrayToHexDisplay(messageToSend));
-//     }, scheduleTime);
-//     // repeat after every sequenceDuration
-//     setTimeout(() => startLoopCycle(messageToSend, scheduleTime), sequenceDuration);
-// }
 
 // Recording event handler
 inputs[inputIndex].onMidiEvent('channel voice message', (message: ChannelVoiceMessage) => {
@@ -274,7 +296,7 @@ inputs[inputIndex].onMidiEvent('channel voice message', (message: ChannelVoiceMe
                             ? (insertTime - recordingStartTime) % sequenceDuration
                             : insertTime - sequences[recordingChannel - 1][i - 1].time;
                         const newNoteOffItem: MidiLoopItem = {
-                            message: (message as NoteOnMessage).changeChannel(recordingChannel -1),
+                            message: (message as NoteOnMessage).changeChannel(recordingChannel - 1),
                             time: insertTime,
                             deltaTime: deltaTime
                         };
@@ -320,9 +342,10 @@ inputs[inputIndex].onMidiEvent('channel voice message', (message: ChannelVoiceMe
 
 function calculateDeltaTime(currentSequence: MidiLoopSequence): number {
     if (!currentSequence.length) { // first MIDI event in this sequence
-        return sequenceDuration
-            ? (Date.now() - recordingStartTime) % sequenceDuration
-            : Date.now() - recordingStartTime;
+        // return sequenceDuration
+        //     ? (Date.now() - recordingStartTime) % sequenceDuration
+        //     : Date.now() - recordingStartTime;
+        return Date.now() - recordingStartTime;
     } else { // second, third ... MIDI event in this sequence
         return Date.now() - currentSequence[currentSequence.length - 1].time
     }
@@ -363,9 +386,9 @@ function sendToOpenSongChannels(message: ChannelVoiceMessage): void {
 // inputs[inputIndex].onMidiEvent('message', (message: MidiMessage) => {
 //     if (!message.type) {
 //         if (message.rawData) {
-//             return console.log('type is undefined: ' + decArrayToHexDisplay(message.rawData));
+//             return console.log('~~ type is undefined: ' + decArrayToHexDisplay(message.rawData));
 //         }
-//         return console.log('type undefined');
+//         return console.log('~~ type undefined');
 //     }
 //     if (message.type in ChannelVoiceMessageType) {
 //         const rawData: number[] = (message as ChannelVoiceMessage).getRawData();
