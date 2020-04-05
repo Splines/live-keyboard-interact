@@ -30,12 +30,14 @@ let recordingStartTime = -1; // ms
 let sequenceDuration = 0; // ms
 let nextCalculatedStopTime = -1; // ms
 const sequences: MidiLoopSequence[] = new Array(16); // root data structure for recorded sequences
-// const sequences: MidiLoopSequence[] = Array(16).fill([]); // will pas []-Object by reference 😒
+// const sequences: MidiLoopSequence[] = Array(16).fill([]); // will pass []-Object by reference 😒
 for (let i = 0; i < sequences.length; i++) {
     sequences[i] = [];
 }
 
 // let currentSequence: MidiLoopSequence = [];
+// TODO: add concept on how to delete missing Note off messages that stay too long in this array
+// which reasons could there be for this situation to occur?
 const missingNoteOffMessages: number[] = [] // note values (first data byte)
 let tempoBpm: number = 120; // bpm
 const sequenceNumberOfBars = 4; // we assume 4/4
@@ -179,6 +181,22 @@ function stopRecording() {
         console.log('==============================================');
         console.log('==============================================');
         startLoopingSequence(recordingChannel - 1);
+        for (let i = 0; i < sequences[recordingChannel - 1].length; i++) {
+            const midiLoopItem: MidiLoopItem = sequences[recordingChannel - 1][i];
+            if ((midiLoopItem.message as ChannelVoiceMessage).type === ChannelVoiceMessageType.NOTE_ON) {
+                const noteOnMessage: NoteOnMessage = midiLoopItem.message as NoteOnMessage;
+                if (noteOnMessage.attackVelocity !== 0) { // 'real' NOTE_ON message
+                    missingNoteOffMessages.push(noteOnMessage.note);
+                } else { // NOTE_OFF message (NOTE_ON message with attack velocity 0)
+                    const firstIndex: number = missingNoteOffMessages.indexOf(noteOnMessage.note);
+                    if (firstIndex !== -1) {
+                        missingNoteOffMessages.splice(firstIndex, 1);
+                    } else {
+                        console.error('Should not happen since we are absorbing these messing prior to saving them in the sequence!');
+                    }
+                }
+            }
+        }
     } else {
         console.log("Sequence doesn't contain any NOTE_ON/OFF messages, so won't start the looper");
         sequences[recordingChannel] = [];
@@ -234,9 +252,6 @@ function startLoopingSequence(sequenceIndex: number) {
 
 // Recording event handler
 inputs[inputIndex].onMidiEvent('channel voice message', (message: ChannelVoiceMessage) => {
-    if (!recording) {
-        return;
-    }
     if (message.type === undefined) {
         return;
     }
@@ -245,11 +260,40 @@ inputs[inputIndex].onMidiEvent('channel voice message', (message: ChannelVoiceMe
     }
     console.log('Channel voice message (R1): ' + decArrayToHexDisplay(message.getRawData()));
     if (message.type as ChannelVoiceMessageType === ChannelVoiceMessageType.NOTE_ON
-        && (message as NoteOnMessage).attackVelocity === 0) { // NOTE_OF message on Tyros
+        && (message as NoteOnMessage).attackVelocity === 0) { // NOTE_OFF message (Yamaha)
         if (missingNoteOffMessages.includes((message as NoteOnMessage).note)) {
             // Put NOTE_OFF message to beginning of last sequence
-            console.log('found unhandled NOTE_OFF!');
+            console.log(`found unhandled NOTE_OFF! (pending: ${missingNoteOffMessages.length})`);
+            if (!sequences[recordingChannel - 1]) {
+                console.error('Should never happen: found a NOTE_OFF message in the first sequence');
+            } else {
+                const insertTime: number = Date.now() - sequenceDuration;
+                for (let i = 0; i < sequences[recordingChannel - 1].length; i++) {
+                    if (insertTime <= sequences[recordingChannel - 1][i].time) {
+                        const deltaTime: number = i === 0
+                            ? (insertTime - recordingStartTime) % sequenceDuration
+                            : insertTime - sequences[recordingChannel - 1][i - 1].time;
+                        const newNoteOffItem: MidiLoopItem = {
+                            message: (message as NoteOnMessage).changeChannel(recordingChannel -1),
+                            time: insertTime,
+                            deltaTime: deltaTime
+                        };
+                        const nextItem: MidiLoopItem = sequences[recordingChannel - 1][i];
+                        nextItem.deltaTime = nextItem.time - insertTime;
+                        // insert new message in sequence at index i
+                        sequences[recordingChannel - 1].splice(i, 0, newNoteOffItem);
+
+                        // we found a NOTE_OFF for the note indicated in missingNoteMessages
+                        // so we can remove the element from there
+                        missingNoteOffMessages.splice(missingNoteOffMessages.lastIndexOf((message as NoteOnMessage).note), 1);
+                        return; // we don't want to include this in the current sequence! (see below)
+                    }
+                }
+            }
         }
+    }
+    if (!recording) {
+        return;
     }
     // TODO: what if we exceed 16 MIDI channels? --> Prevent TypeError (cannot read property of undefined)!!!
     sequences[recordingChannel].push({
