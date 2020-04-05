@@ -1,21 +1,47 @@
-// Basic looper test
 import { getInputNames, Input } from "./midiInput";
-import { ChannelVoiceMessage, SystemExclusiveMessage, ControlChangeMessage, ProgramChangeMessage, ChannelVoiceMessageType, SystemRealTimeMessageType, SystemRealTimeMessage, NoteOnMessage, MidiMessage, SystemExclusiveMessageType, SystemCommonMessageType, SystemCommonMessage } from "./midiTypes";
 import { getOutputNames, Output } from "./midiOutput";
+// import {MidiMessage} from './midiTypes';
+import { SystemExclusiveMessage, /*SystemExclusiveMessageType*/ } from './midiTypes';
+import { SystemRealTimeMessage, SystemRealTimeMessageType } from './midiTypes';
+// import {SystemCommonMessage, SystemCommonMessageType} from './midiTypes';
+import { ChannelVoiceMessage, ChannelVoiceMessageType, NoteOnMessage, ControlChangeMessage, ProgramChangeMessage } from './midiTypes';
 import { areArraysEqual, decArrayToHexDisplay } from "../YamahaApi/utils/nodeUtils";
 
-/////////////
-// Devices //
-/////////////
+/////////////////
+// MIDI Device //
+/////////////////
 let inputs: Input[] = [];
 let outputs: Output[] = [];
-init();
 const inputIndex = 1;
 const outputIndex = 1;
+initMidiDevice();
 
-///////////////
-// Recording //
-///////////////
+/////////////////////////////
+// Buttons on Yamaha Tyros //
+/////////////////////////////
+let isVocalHarmonyOn = false;
+const VOCAL_HARMONY_ON = [0xF0, 0x43, 0x10, 0x4C, 0x04, 0x00, 0x0C, 0x40, 0xF7];
+const VOCAL_HARMONY_OFF = [0xF0, 0x43, 0x10, 0x4C, 0x04, 0x00, 0x0C, 0x7F, 0xF7];
+
+// let isEffectOn = false;
+const EFFECT_ON = [0xF0, 0x43, 0x10, 0x4C, 0x03, 0x05, 0x0C, 0x40, 0xF7];
+const EFFECT_OFF = [0xF0, 0x43, 0x10, 0x4C, 0x03, 0x05, 0x0C, 0x7F, 0xF7];
+
+/////////////////////////////////
+// Sequence recording settings // 
+/////////////////////////////////
+// standard: one sequence is 4 measures long --> can't be changed while playing
+const sequenceLengthInMeasures = 4; // TODO: user should be able to change this
+const numeratorTimeSignature = 4; // TODO: user should be able to change this
+const denominatorTimeSignature = 4; // TODO: user should be able to change this
+// how many quarter notes fit in one measure?
+const quarterNotesPerMeasure = (numeratorTimeSignature * 4) / denominatorTimeSignature;
+const quarterNotesPerSequence = quarterNotesPerMeasure * sequenceLengthInMeasures;
+const midiTicksPerSequence = quarterNotesPerSequence * 24; // 24 MIDI Clock messages are sent per quarter note
+
+/////////////////////////////////
+// Sequence recordings storage //
+/////////////////////////////////
 interface MidiLoopSequence extends Array<MidiLoopItem> { };
 
 interface MidiLoopItem {
@@ -35,15 +61,6 @@ for (let i = 0; i < sequences.length; i++) {
     sequences[i] = [];
 }
 
-// standard: one sequence is 4 measures long --> can't be changed while playing
-const sequenceLengthInMeasures = 4; // TODO: user should be able to change this
-const numeratorTimeSignature = 4; // TODO: user should be able to change this
-const denominatorTimeSignature = 4; // TODO: user should be able to change this
-// how many quarter notes fit in one measure?
-const quarterNotesPerMeasure = (numeratorTimeSignature * 4) / denominatorTimeSignature;
-const quarterNotesPerSequence = quarterNotesPerMeasure * sequenceLengthInMeasures;
-const midiTicksPerSequence = quarterNotesPerSequence * 24; // 24 MIDI Clock messages are sent per quarter note
-
 // let currentSequence: MidiLoopSequence = [];
 // TODO: add concept on how to delete missing Note off messages that stay too long in this array
 // which reasons could there be for this situation to occur?
@@ -51,21 +68,10 @@ const missingNoteOffMessages: number[] = [] // note values (first data byte)
 let tempoBpm: number = 120; // bpm
 const sequenceNumberOfBars = 4; // we assume 4/4
 
-/////////////////////////
-// Buttons on keyboard //
-/////////////////////////
-let isVocalHarmonyOn = false;
-const VOCAL_HARMONY_ON = [0xF0, 0x43, 0x10, 0x4C, 0x04, 0x00, 0x0C, 0x40, 0xF7];
-const VOCAL_HARMONY_OFF = [0xF0, 0x43, 0x10, 0x4C, 0x04, 0x00, 0x0C, 0x7F, 0xF7];
-
-// let isEffectOn = false;
-const EFFECT_ON = [0xF0, 0x43, 0x10, 0x4C, 0x03, 0x05, 0x0C, 0x40, 0xF7];
-const EFFECT_OFF = [0xF0, 0x43, 0x10, 0x4C, 0x03, 0x05, 0x0C, 0x7F, 0xF7];
-
 /**
  * Initialize inputs and outputs.
  */
-function init() {
+function initMidiDevice() {
     console.log('INPUTS');
     getInputNames().forEach((inputName: string) => {
         console.log(inputName);
