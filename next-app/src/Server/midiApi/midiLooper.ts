@@ -538,3 +538,31 @@ function transposeAllSequences(transposeValue: number) {
 //         });
 //     });
 // }
+
+/////////////
+// Cleanup //
+/////////////
+// see https://stackoverflow.com/a/14032965/9655481
+// and https://stackoverflow.com/a/49392671/9655481
+[`exit`, `SIGINT`, `SIGUSR1`, `SIGUSR2`, `uncaughtException`, `SIGTERM`].forEach((eventType: any) => {
+    process.on(eventType, (exitCode: number) => {
+        console.log('========================================================');
+        console.log('========================================================');
+        console.log('========================================================');
+        console.log('========================================================');
+        if (exitCode) console.log('exitCode: ' + exitCode);
+        cleanup();
+        process.exit(exitCode);
+    });
+});
+
+function cleanup() {
+    // NOTE_OFF messages for every key on every channel (in every output)
+    outputs.forEach((output: Output) => {
+        for (let i = 0; i <= 127; i++) {
+            for (let j = 0; j <= 15; j++) {
+                output.send([0x90 + j, i, 0x00]);
+            }
+        }
+    });
+}
