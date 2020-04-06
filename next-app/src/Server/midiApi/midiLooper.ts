@@ -124,7 +124,7 @@ inputs[inputIndex].onMidiEvent('sysex', (message: SystemExclusiveMessage) => {
     }
 });
 
-// Style Start
+// Style Start/Stop
 inputs[inputIndex].onMidiEvent('sys real time', (message: SystemRealTimeMessage) => {
     if (message.type as SystemRealTimeMessageType === SystemRealTimeMessageType.START) {
         // Initialize first sequence
@@ -133,6 +133,9 @@ inputs[inputIndex].onMidiEvent('sys real time', (message: SystemRealTimeMessage)
             items: []
         });
         startRecording();
+    } else if (message.type as SystemRealTimeMessageType === SystemRealTimeMessageType.STOP) {
+        stopRecording();
+        midiTicksCount = 0;
     }
 });
 
@@ -271,7 +274,7 @@ function checkNoteOffMissing(items: MidiLoopItem[]): void {
             if (firstIndex !== -1) {
                 missingNoteOffMessages.splice(firstIndex, 1); // remove as we have found the corresponding NOTE_OFF message
             } else {
-                console.error('Should not happen since we are absorbing these messing prior to saving them in the sequence!');
+                console.error('Should not happen since we are absorbing these messages prior to saving them in the sequence!');
             }
         }
     }
@@ -288,13 +291,15 @@ inputs[inputIndex].onMidiEvent('channel voice message', (message: ChannelVoiceMe
     if (message.channel !== 0) {
         return;
     }
-    console.log('🎹 Channel Voice Message (Right1): ' + decArrayToHexDisplay(message.getRawData()));
     // Handle NOTE_OFF messages
     // Note that dealing with Yamaha keyboards, there are no NOTE_OFF messages
     // but instead NOTE_ON messages with velocity 0
     if (message.type as ChannelVoiceMessageType === ChannelVoiceMessageType.NOTE_ON
         && (message as NoteOnMessage).attackVelocity === 0) { // NOTE_OFF message on Yamaha keyboards
         if (missingNoteOffMessages.includes((message as NoteOnMessage).note)) {
+            // missingNoteOffMessages.forEach((value: number) => {
+            //     console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ found missing note: ' + value);
+            // });
             handleMissingNoteOffMessage(message as NoteOnMessage);
             return; // (!) we don't want to include this in the current sequence (see below)
         }
@@ -302,6 +307,7 @@ inputs[inputIndex].onMidiEvent('channel voice message', (message: ChannelVoiceMe
     if (!recording) {
         return;
     }
+    console.log('🎹 Channel Voice Message (Right1): ' + decArrayToHexDisplay(message.getRawData()));
     // TODO: what if we exceed 16 MIDI channels? --> Prevent TypeError (cannot read property of undefined)!!!
     // console.log('🎁🎁 Pushing Channel Voice Message');
     // console.log('pushing deltaTime: ' + (Date.now() - sequences[recordingChannel].sequenceStartTime));
