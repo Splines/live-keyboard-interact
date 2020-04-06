@@ -47,7 +47,7 @@ const midiTicksPerSequence = quarterNotesPerSequence * 24; // 24 MIDI Clock mess
 /////////////////////////////////
 // Sequence recordings storage //
 /////////////////////////////////
-// interface MidiLoopSequence extends Array<MidiLoopItem> { };
+let sequenceCounter = 0;
 interface MidiLoopSequence {
     sequenceStartTime: number; // ms
     items: MidiLoopItem[];
@@ -67,7 +67,22 @@ let recordingChannel = 0; // Song MIDI channels (16 in total) // do not change t
 // which reasons could there be for this situation to occur?
 const sequences: MidiLoopSequence[] = [];
 
-const missingNoteOffMessages: number[] = [] // note values (first data byte)
+// const missingNoteOffMessages: number[] = [] // note values (first data byte)
+interface MissingNoteOffMessage {
+    /**
+     * the key number of the NOTE_ON message
+     */
+    note: number;
+    /**
+     * the number of the sequence in which the message was recorded
+     */
+    sequenceNumber: number;
+    /**
+     * the channel in which the message was recorded
+     */
+    channel: number;
+}
+const missingNoteOffMessages: MissingNoteOffMessage[] = [];
 let tempoBpm: number = 120; // bpm
 
 /**
@@ -179,6 +194,7 @@ function timePlaybackAndRecordings() {
         console.log('================================================================================');
         console.log('================================ SEQUENCE CUT ✂ ================================');
         console.log('================================================================================');
+        sequenceCounter += 1;
         // Update sequence start time
         sequences[recordingChannel].sequenceStartTime = Date.now();
         for (let i = 0; i < recordingChannel; i++) {
@@ -244,41 +260,25 @@ function stopRecording() {
 
 function handleNewSequence(channel: number) {
     if (!containsAnyNoteMessage(sequences[channel].items)) {
-        console.log("❌ Sequence doesn't contain any NOTE_ON/OFF messages, so won't start the looper / skip this sequence");
+        console.log("⌛ Sequence doesn't contain any NOTE_ON/OFF messages, so won't start the looper / skip this sequence");
         sequences[channel].items = [];
         return;
     }
     // prepare as fast as possible for next sequence so that new messages are registered correctly
     prepareForNextSequence();
     startSequencePlayback(channel);
-    checkNoteOffMissing(sequences[channel].items);
 }
 
-/**
- * Adds NOTE_ON message to the potential missing NOTE_OFf messages array and removes them
- * whenever a corresponding NOTE_OFF message is found.
- * The messages that are left over indicate the missing NOTE_OFF messages.
- * @param items items of the current sequence
- */
-function checkNoteOffMissing(items: MidiLoopItem[]): void {
-    for (let i = 0; i < items.length; i++) {
-        if ((items[i].message as ChannelVoiceMessage).type !== ChannelVoiceMessageType.NOTE_ON) {
-            return;
-        }
-        const noteOnMessage: NoteOnMessage = items[i].message as NoteOnMessage;
-        if (noteOnMessage.attackVelocity !== 0) { // 'real' NOTE_ON message on Yamaha keyboards
-            missingNoteOffMessages.push(noteOnMessage.note);
-        } else { // NOTE_OFF message (NOTE_ON message with attack velocity 0)
-            // Check if corresponding NOTE_ON message was already registered
-            const firstIndex: number = missingNoteOffMessages.indexOf(noteOnMessage.note);
-            if (firstIndex !== -1) {
-                missingNoteOffMessages.splice(firstIndex, 1); // remove as we have found the corresponding NOTE_OFF message
-            } else {
-                console.error('Should not happen since we are absorbing these messages prior to saving them in the sequence!');
-            }
-        }
-    }
-}
+// function cleanNoteOffMissing(sequenceNumber: number): void {
+//     console.log('length of noteOffMissing: ' + missingNoteOffMessages.length);
+//     for (let i = 0; i < missingNoteOffMessages.length; i++) {
+//         if (missingNoteOffMessages[i].sequenceNumber !== sequenceNumber - 2) {
+//             return;
+//         }
+//         missingNoteOffMessages.slice(i, 1);
+//         console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ REMOVED ' + missingNoteOffMessages[i].note);
+//     }
+// }
 
 ////////////////////////
 // Messages recording //
@@ -294,14 +294,31 @@ inputs[inputIndex].onMidiEvent('channel voice message', (message: ChannelVoiceMe
     // Handle NOTE_OFF messages
     // Note that dealing with Yamaha keyboards, there are no NOTE_OFF messages
     // but instead NOTE_ON messages with velocity 0
-    if (message.type as ChannelVoiceMessageType === ChannelVoiceMessageType.NOTE_ON
-        && (message as NoteOnMessage).attackVelocity === 0) { // NOTE_OFF message on Yamaha keyboards
-        if (missingNoteOffMessages.includes((message as NoteOnMessage).note)) {
-            // missingNoteOffMessages.forEach((value: number) => {
-            //     console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ found missing note: ' + value);
-            // });
-            handleMissingNoteOffMessage(message as NoteOnMessage);
-            return; // (!) we don't want to include this in the current sequence (see below)
+    if (message.type as ChannelVoiceMessageType === ChannelVoiceMessageType.NOTE_ON) {
+        if ((message as NoteOnMessage).attackVelocity === 0) {
+            // NOTE_OFF message on Yamaha keyboards
+            let foundNoteInMissingArray = false;
+            for (let i = 0; i < missingNoteOffMessages.length; i++) {
+                if (missingNoteOffMessages[i].note !== (message as NoteOnMessage).note) {
+                    continue;
+                }
+                foundNoteInMissingArray = true;
+                const response = handlePotentiallyMissingNoteOffMessage(message as NoteOnMessage, missingNoteOffMessages[i], i);
+                if (response === NoteOffMessageHandlingResponse.UNHANDLED) {
+                    return; // (!) we don't want to include this in the current sequence (see below)
+                }
+            }
+            if (!foundNoteInMissingArray) {
+                console.error(`Encountered NOTE_OFF message that is not registered in the missingNoteOffMessages`);
+                return;
+            }
+        } else {
+            // NOTE_ON message
+            missingNoteOffMessages.push({
+                note: (message as NoteOnMessage).note,
+                sequenceNumber: sequenceCounter,
+                channel: recordingChannel
+            });
         }
     }
     if (!recording) {
@@ -317,29 +334,74 @@ inputs[inputIndex].onMidiEvent('channel voice message', (message: ChannelVoiceMe
     });
 });
 
-function handleMissingNoteOffMessage(message: NoteOnMessage): void {
-    // Put NOTE_OFF message to beginning of last sequence
-    console.log(`🎙 Found unhandled NOTE_OFF message! (pending: ${missingNoteOffMessages.length})`);
-    if (!sequences[recordingChannel - 1].items.length) {
-        console.error('Should never happen: found a NOTE_OFF message, but no sequence prior to this one');
-        return;
-    }
-    const messageTimeSinceSequenceStart = Date.now() - sequences[recordingChannel].sequenceStartTime;
-    for (let i = 0; i < sequences[recordingChannel - 1].items.length; i++) {
-        const previousSequenceItem = sequences[recordingChannel - 1].items[i];
-        if (messageTimeSinceSequenceStart > previousSequenceItem.deltaTimeSequenceStart) {
-            continue;
-        }
-        const newNoteOffItem: MidiLoopItem = {
-            message: (message as NoteOnMessage).changeChannel(recordingChannel - 1),
-            deltaTimeSequenceStart: messageTimeSinceSequenceStart
-        };
-        // insert new message in sequence at index i
-        sequences[recordingChannel - 1].items.splice(i, 0, newNoteOffItem);
-        // we found a NOTE_OFF for the note indicated in missingNoteMessages
-        // so we can remove the element from there
-        missingNoteOffMessages.splice(missingNoteOffMessages.lastIndexOf((message as NoteOnMessage).note), 1);
-        return; // we placed the new item, so this function did all it was supposed to do
+enum NoteOffMessageHandlingResponse {
+    USUAL,
+    UNHANDLED,
+    ERROR
+}
+
+/**
+ * 
+ * @param message 
+ * @param missingNoteOffIndex the index where the message was found in the missingNoteOffMessages-array
+ */
+function handlePotentiallyMissingNoteOffMessage(message: NoteOnMessage, missingItem: MissingNoteOffMessage, missingNoteOffIndex: number): NoteOffMessageHandlingResponse {
+    switch (missingItem.sequenceNumber) {
+        // key was pressed and released in the same sequence (normal case)
+        case sequenceCounter:
+            // console.log('Found usual NOTE_OFF message');
+            missingNoteOffMessages.splice(missingNoteOffIndex, 1);
+            return NoteOffMessageHandlingResponse.USUAL;
+
+        // key was pressed and not released before sequence ended
+        case sequenceCounter - 1:
+            // sort the NOTE_OFF message to the previous channel
+            console.log(`⚠ Found unhandled NOTE_OFF message! (pending: ${missingNoteOffMessages.length})`);
+            if (!sequences[recordingChannel - 1].items.length) {
+                console.error('Found a NOTE_OFF message, but no sequence prior to this one');
+                return NoteOffMessageHandlingResponse.ERROR;
+            }
+            const messageTimeSinceSequenceStart = Date.now() - sequences[recordingChannel].sequenceStartTime;
+            for (let i = 0; i < sequences[recordingChannel - 1].items.length; i++) {
+                const previousSequenceItem = sequences[recordingChannel - 1].items[i];
+                if (messageTimeSinceSequenceStart > previousSequenceItem.deltaTimeSequenceStart) {
+                    continue;
+                }
+                const newNoteOffItem: MidiLoopItem = {
+                    message: (message as NoteOnMessage).changeChannel(recordingChannel - 1),
+                    deltaTimeSequenceStart: messageTimeSinceSequenceStart
+                };
+                // insert new message in sequence at index i
+                sequences[recordingChannel - 1].items.splice(i, 0, newNoteOffItem);
+                // we found a NOTE_OFF for the note indicated in missingNoteMessages
+                // so we can remove the element from there
+                missingNoteOffMessages.splice(missingNoteOffIndex, 1);
+                return NoteOffMessageHandlingResponse.UNHANDLED; // we placed the new item, so this function did all it was supposed to do
+            }
+
+        // key was pressed and not released in at least one subsequent sequence (organ point)
+        default:
+            // key is constantly being pressed, so no need to send NOTE_ON messages in subsequent sequences
+            console.log(`⚠ Found organ point (no NOTE_ON message needed)`);
+            missingNoteOffMessages.splice(missingNoteOffIndex, 1);
+            let found = false;
+            for (let i = sequences[missingItem.channel].items.length - 1; i >= 0; i--) {
+                if (sequences[missingItem.channel].items[i].message.type !== ChannelVoiceMessageType.NOTE_ON) {
+                    continue;
+                }
+                if ((sequences[missingItem.channel].items[i].message as NoteOnMessage).attackVelocity === 0) {
+                    continue;
+                }
+                // we are now dealing with a 'real' (velocity greater than 0) NOTE_ON message that we want to delete
+                sequences[missingItem.channel].items.splice(i, 1);
+                found = true;
+                break;
+            }
+            if (!found) {
+                console.error(`Missing item couldn't be found in the respective channel, so we can't remove the NOTE_ON message`);
+                return NoteOffMessageHandlingResponse.ERROR;
+            }
+            return NoteOffMessageHandlingResponse.UNHANDLED;
     }
 }
 
