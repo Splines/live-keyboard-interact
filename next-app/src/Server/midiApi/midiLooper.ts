@@ -47,28 +47,26 @@ const midiTicksPerSequence = quarterNotesPerSequence * 24; // 24 MIDI Clock mess
 /////////////////////////////////
 // Sequence recordings storage //
 /////////////////////////////////
-interface MidiLoopSequence extends Array<MidiLoopItem> { };
+// interface MidiLoopSequence extends Array<MidiLoopItem> { };
+interface MidiLoopSequence {
+    sequenceStartTime: number; // ms
+    items: MidiLoopItem[];
+}
 
 interface MidiLoopItem {
     message: ChannelVoiceMessage;
-    time: number // unix time of record in milliseconds (ms)
-    deltaTime: number // number of milliseconds since the previous item
+    /**
+     * Time passed since the start of the sequence this item is part of
+     */
+    deltaTimeSequenceStart: number // number of milliseconds since the previous item
 }
 
 let recording = false;
-let recordingChannel = 0; // Song MIDI channels (16 in total)
-let recordingStartTime = -1; // ms
-let sequenceDuration = 0; // ms
-// let nextCalculatedStopTime = -1; // ms
-const sequences: MidiLoopSequence[] = new Array(16); // root data structure for recorded sequences
-// const sequences: MidiLoopSequence[] = Array(16).fill([]); // will pass []-Object by reference 😒
-for (let i = 0; i < sequences.length; i++) {
-    sequences[i] = [];
-}
-
-// let currentSequence: MidiLoopSequence = [];
+let recordingChannel = 0; // Song MIDI channels (16 in total) // do not change to a different initial value
 // TODO: add concept on how to delete missing Note off messages that stay too long in this array
 // which reasons could there be for this situation to occur?
+const sequences: MidiLoopSequence[] = [];
+
 const missingNoteOffMessages: number[] = [] // note values (first data byte)
 let tempoBpm: number = 120; // bpm
 
@@ -129,14 +127,16 @@ inputs[inputIndex].onMidiEvent('sysex', (message: SystemExclusiveMessage) => {
 // Style Start
 inputs[inputIndex].onMidiEvent('sys real time', (message: SystemRealTimeMessage) => {
     if (message.type as SystemRealTimeMessageType === SystemRealTimeMessageType.START) {
-        recordingStartTime = Date.now();
+        // Initialize first sequence
+        sequences.push({
+            sequenceStartTime: Date.now(),
+            items: []
+        });
         startRecording();
     }
 });
 
-/////////////////
-// Tempo (BPM) //
-/////////////////
+// Tempo (BPM)
 inputs[inputIndex].onMidiEvent('sysex', (message: SystemExclusiveMessage) => {
     const sysExHeader: number[] = [0xF0, 0x43, 0x7E, 0x01]; // Tempo control
     for (let i = 0; i < sysExHeader.length; i++) {
@@ -145,7 +145,7 @@ inputs[inputIndex].onMidiEvent('sysex', (message: SystemExclusiveMessage) => {
         }
     }
     tempoBpm = tempoSysExToBpm(message.rawData.slice(4, 8));
-    console.log('tempo (BPM): ' + tempoBpm);
+    console.log('Tempo (BPM): ' + tempoBpm);
 });
 
 // see more information on how the algorithm works here
@@ -173,14 +173,18 @@ function timePlaybackAndRecordings() {
         if (midiTicksCount !== midiTicksPerSequence) {
             return;
         }
+        console.log('================================================================================');
         console.log('================================ SEQUENCE CUT ✂ ================================');
-        sequenceDuration = Date.now() - recordingStartTime;
+        console.log('================================================================================');
+        // Update sequence start time
+        sequences[recordingChannel].sequenceStartTime = Date.now();
         for (let i = 0; i < recordingChannel; i++) {
             startSequencePlayback(i);
         }
-        handleNewRecording(recordingChannel);
-        recordingStartTime = Date.now();
+        handleNewSequence(recordingChannel);
         // Prepare for next recording
+        // we need to set the sequence start time regardless of whether we start a new recording or not
+        // since the user could press the vocal harmony button later on
         if (isVocalHarmonyOn) {
             startRecording();
         } else {
@@ -190,7 +194,15 @@ function timePlaybackAndRecordings() {
     });
 }
 
-function increaseRecordingChannel() {
+/**
+ * This will increase the recordingChannel by 1 and initialize a new sequence
+ * that can be filled with MIDI messages.
+ */
+function prepareForNextSequence() {
+    sequences.push({
+        sequenceStartTime: Date.now(),
+        items: []
+    });
     recordingChannel += 1;
     console.log(`Recording Channel increased ↑ to CH ${recordingChannel}`);
 }
@@ -203,15 +215,13 @@ function increaseRecordingChannel() {
 function startSequencePlayback(sequenceIndex: number) {
     console.log('🎧 Playback sequence on CH' + sequenceIndex);
     const sequenceToLoop = sequences[sequenceIndex];
-    let timePassed: number = 0;
-    for (let i = 0; i < sequenceToLoop.length; i++) {
-        const midiLoopItem: MidiLoopItem = sequenceToLoop[i];
+    for (let i = 0; i < sequenceToLoop.items.length; i++) {
+        const midiLoopItem: MidiLoopItem = sequenceToLoop.items[i];
         const messageToSend: number[] = midiLoopItem.message.getRawData();
         setTimeout(() => {
             outputs[outputIndex].send(messageToSend);
             console.log(`📣 Sent message (CH${sequenceIndex}): ${decArrayToHexDisplay(messageToSend)}`);
-        }, midiLoopItem.deltaTime + timePassed);
-        timePassed += midiLoopItem.deltaTime;
+        }, midiLoopItem.deltaTimeSequenceStart);
     }
 }
 
@@ -229,27 +239,39 @@ function stopRecording() {
     }
 }
 
-function handleNewRecording(channel: number) {
-    if (!containsAnyNoteMessage(sequences[channel])) {
+function handleNewSequence(channel: number) {
+    if (!containsAnyNoteMessage(sequences[channel].items)) {
         console.log("❌ Sequence doesn't contain any NOTE_ON/OFF messages, so won't start the looper / skip this sequence");
-        sequences[recordingChannel] = [];
+        sequences[channel].items = [];
         return;
     }
-    increaseRecordingChannel(); // increase as fast as possible for new messages to be registered correctly
+    // prepare as fast as possible for next sequence so that new messages are registered correctly
+    prepareForNextSequence();
     startSequencePlayback(channel);
-    for (let i = 0; i < sequences[channel].length; i++) {
-        const midiLoopItem: MidiLoopItem = sequences[channel][i];
-        if ((midiLoopItem.message as ChannelVoiceMessage).type === ChannelVoiceMessageType.NOTE_ON) {
-            const noteOnMessage: NoteOnMessage = midiLoopItem.message as NoteOnMessage;
-            if (noteOnMessage.attackVelocity !== 0) { // 'real' NOTE_ON message
-                missingNoteOffMessages.push(noteOnMessage.note);
-            } else { // NOTE_OFF message (NOTE_ON message with attack velocity 0)
-                const firstIndex: number = missingNoteOffMessages.indexOf(noteOnMessage.note);
-                if (firstIndex !== -1) {
-                    missingNoteOffMessages.splice(firstIndex, 1);
-                } else {
-                    console.error('Should not happen since we are absorbing these messing prior to saving them in the sequence!');
-                }
+    checkNoteOffMissing(sequences[channel].items);
+}
+
+/**
+ * Adds NOTE_ON message to the potential missing NOTE_OFf messages array and removes them
+ * whenever a corresponding NOTE_OFF message is found.
+ * The messages that are left over indicate the missing NOTE_OFF messages.
+ * @param items items of the current sequence
+ */
+function checkNoteOffMissing(items: MidiLoopItem[]): void {
+    for (let i = 0; i < items.length; i++) {
+        if ((items[i].message as ChannelVoiceMessage).type !== ChannelVoiceMessageType.NOTE_ON) {
+            return;
+        }
+        const noteOnMessage: NoteOnMessage = items[i].message as NoteOnMessage;
+        if (noteOnMessage.attackVelocity !== 0) { // 'real' NOTE_ON message on Yamaha keyboards
+            missingNoteOffMessages.push(noteOnMessage.note);
+        } else { // NOTE_OFF message (NOTE_ON message with attack velocity 0)
+            // Check if corresponding NOTE_ON message was already registered
+            const firstIndex: number = missingNoteOffMessages.indexOf(noteOnMessage.note);
+            if (firstIndex !== -1) {
+                missingNoteOffMessages.splice(firstIndex, 1); // remove as we have found the corresponding NOTE_OFF message
+            } else {
+                console.error('Should not happen since we are absorbing these messing prior to saving them in the sequence!');
             }
         }
     }
@@ -267,63 +289,58 @@ inputs[inputIndex].onMidiEvent('channel voice message', (message: ChannelVoiceMe
         return;
     }
     console.log('🎹 Channel Voice Message (Right1): ' + decArrayToHexDisplay(message.getRawData()));
+    // Handle NOTE_OFF messages
+    // Note that dealing with Yamaha keyboards, there are no NOTE_OFF messages
+    // but instead NOTE_ON messages with velocity 0
     if (message.type as ChannelVoiceMessageType === ChannelVoiceMessageType.NOTE_ON
-        && (message as NoteOnMessage).attackVelocity === 0) { // NOTE_OFF message (Yamaha)
+        && (message as NoteOnMessage).attackVelocity === 0) { // NOTE_OFF message on Yamaha keyboards
         if (missingNoteOffMessages.includes((message as NoteOnMessage).note)) {
-            // Put NOTE_OFF message to beginning of last sequence
-            console.log(`found unhandled NOTE_OFF! (pending: ${missingNoteOffMessages.length})`);
-
-            if (!sequences[recordingChannel - 1]) {
-                console.error('Should never happen: found a NOTE_OFF message in the first sequence');
-            } else {
-                const insertTime: number = Date.now() - sequenceDuration;
-                for (let i = 0; i < sequences[recordingChannel - 1].length; i++) {
-                    if (insertTime <= sequences[recordingChannel - 1][i].time) {
-                        const deltaTime: number = i === 0
-                            ? (insertTime - recordingStartTime) % sequenceDuration
-                            : insertTime - sequences[recordingChannel - 1][i - 1].time;
-                        const newNoteOffItem: MidiLoopItem = {
-                            message: (message as NoteOnMessage).changeChannel(recordingChannel - 1),
-                            time: insertTime,
-                            deltaTime: deltaTime
-                        };
-                        const nextItem: MidiLoopItem = sequences[recordingChannel - 1][i];
-                        nextItem.deltaTime = nextItem.time - insertTime;
-                        // insert new message in sequence at index i
-                        sequences[recordingChannel - 1].splice(i, 0, newNoteOffItem);
-
-                        // we found a NOTE_OFF for the note indicated in missingNoteMessages
-                        // so we can remove the element from there
-                        missingNoteOffMessages.splice(missingNoteOffMessages.lastIndexOf((message as NoteOnMessage).note), 1);
-                        return; // we don't want to include this in the current sequence! (see below)
-                    }
-                }
-            }
+            handleMissingNoteOffMessage(message as NoteOnMessage);
+            return; // (!) we don't want to include this in the current sequence (see below)
         }
     }
     if (!recording) {
         return;
     }
     // TODO: what if we exceed 16 MIDI channels? --> Prevent TypeError (cannot read property of undefined)!!!
-    sequences[recordingChannel].push({
+    // console.log('🎁🎁 Pushing Channel Voice Message');
+    // console.log('pushing deltaTime: ' + (Date.now() - sequences[recordingChannel].sequenceStartTime));
+    sequences[recordingChannel].items.push({
         message: message.changeChannel(recordingChannel),
-        time: Date.now(),
-        deltaTime: calculateDeltaTime(sequences[recordingChannel])
+        deltaTimeSequenceStart: Date.now() - sequences[recordingChannel].sequenceStartTime
     });
 });
 
-function calculateDeltaTime(currentSequence: MidiLoopSequence): number {
-    if (!currentSequence.length) { // first MIDI event in this sequence
-        // return sequenceDuration
-        //     ? (Date.now() - recordingStartTime) % sequenceDuration
-        //     : Date.now() - recordingStartTime;
-        return Date.now() - recordingStartTime;
-    } else { // second, third ... MIDI event in this sequence
-        return Date.now() - currentSequence[currentSequence.length - 1].time
+function handleMissingNoteOffMessage(message: NoteOnMessage): void {
+    // Put NOTE_OFF message to beginning of last sequence
+    console.log(`🎙 Found unhandled NOTE_OFF message! (pending: ${missingNoteOffMessages.length})`);
+    if (!sequences[recordingChannel - 1].items.length) {
+        console.error('Should never happen: found a NOTE_OFF message, but no sequence prior to this one');
+        return;
+    }
+    const messageTimeSinceSequenceStart = Date.now() - sequences[recordingChannel].sequenceStartTime;
+    for (let i = 0; i < sequences[recordingChannel - 1].items.length; i++) {
+        const previousSequenceItem = sequences[recordingChannel - 1].items[i];
+        if (messageTimeSinceSequenceStart > previousSequenceItem.deltaTimeSequenceStart) {
+            continue;
+        }
+        const newNoteOffItem: MidiLoopItem = {
+            message: (message as NoteOnMessage).changeChannel(recordingChannel - 1),
+            deltaTimeSequenceStart: messageTimeSinceSequenceStart
+        };
+        // insert new message in sequence at index i
+        sequences[recordingChannel - 1].items.splice(i, 0, newNoteOffItem);
+        // we found a NOTE_OFF for the note indicated in missingNoteMessages
+        // so we can remove the element from there
+        missingNoteOffMessages.splice(missingNoteOffMessages.lastIndexOf((message as NoteOnMessage).note), 1);
+        return; // we placed the new item, so this function did all it was supposed to do
     }
 }
 
-// Record Control Change Messages (e.g. volume/effect changes, selection of another instrument in the same bank)
+////////////////////////
+// Messages redirects //
+////////////////////////
+// Redirect Control Change Messages (e.g. volume/effect changes, selection of another instrument in the same bank)
 inputs[inputIndex].onMidiEvent('cc', (message: ControlChangeMessage) => {
     // we want this to apply for situations when we don't record as well (!)
     if (message.type === undefined) {
@@ -336,7 +353,7 @@ inputs[inputIndex].onMidiEvent('cc', (message: ControlChangeMessage) => {
     sendToOpenSongChannels(message);
 });
 
-// Record Program Change Messages (i.e. instrument bank is changed)
+// Redirect Program Change Messages (i.e. instrument bank is changed)
 inputs[inputIndex].onMidiEvent('program', (message: ProgramChangeMessage) => {
     if (message.type === undefined) {
         return;
@@ -348,7 +365,7 @@ inputs[inputIndex].onMidiEvent('program', (message: ProgramChangeMessage) => {
     sendToOpenSongChannels(message);
 });
 
-// Record System Exclusive Messages
+// Redirect System Exclusive Messages
 // inputs[inputIndex].onMidiEvent('sysex', (message: SystemExclusiveMessage) => {
 //     if (!recording) {
 //         return;
@@ -367,8 +384,8 @@ inputs[inputIndex].onMidiEvent('program', (message: ProgramChangeMessage) => {
 /////////////
 // Utility //
 /////////////
-function containsAnyNoteMessage(sequence: MidiLoopSequence): boolean {
-    return sequence.some((item: MidiLoopItem) => {
+function containsAnyNoteMessage(items: MidiLoopItem[]): boolean {
+    return items.some((item: MidiLoopItem) => {
         if (item.message.type === ChannelVoiceMessageType.NOTE_ON
             || item.message.type === ChannelVoiceMessageType.NOTE_OFF) {
             return true;
