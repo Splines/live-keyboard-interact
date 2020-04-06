@@ -32,6 +32,13 @@ const VOCAL_HARMONY_OFF = [0xF0, 0x43, 0x10, 0x4C, 0x04, 0x00, 0x0C, 0x7F, 0xF7]
 const EFFECT_ON = [0xF0, 0x43, 0x10, 0x4C, 0x03, 0x05, 0x0C, 0x40, 0xF7];
 const EFFECT_OFF = [0xF0, 0x43, 0x10, 0x4C, 0x03, 0x05, 0x0C, 0x7F, 0xF7];
 
+////////////
+// Divers //
+////////////
+let tempoBpm: number = 120; // bpm
+let absoluteTransposeValue = 0;
+const transposeShift = 1; // TODO: user should be able to change this // Transpose +1 (absolute)
+
 /////////////////////////////////
 // Sequence recording settings // 
 /////////////////////////////////
@@ -83,7 +90,6 @@ interface MissingNoteOffMessage {
     channel: number;
 }
 const missingNoteOffMessages: MissingNoteOffMessage[] = [];
-let tempoBpm: number = 120; // bpm
 
 /**
  * Initialize MIDI inputs and outputs
@@ -126,15 +132,27 @@ inputs[inputIndex].onMidiEvent('sysex', (message: SystemExclusiveMessage) => {
         }
     }
 
+    const msbCoarseTune = [0xB0, 0x65, 0x00]; // RPN MSB Coarse Tune (p.63)
+    const lsbCoarseTune = [0xB0, 0x64, 0x02]; // RPN LSB Coarse Tune (p.63)
     // Check Effect button
     // TODO: add functionality later to this button
     if (!foundVocalHarmony) {
         if (areArraysEqual(message.rawData, EFFECT_ON)) {
             console.log('=== Effect on');
+            outputs[outputIndex + 1].send(msbCoarseTune);
+            outputs[outputIndex + 1].send(lsbCoarseTune);
+            outputs[outputIndex + 1].send([0xB0, 0x06, 0x40 + transposeShift]);
+            absoluteTransposeValue = transposeShift;
+            transposeAllSequences(transposeShift);
             // isEffectOn = true;
         } else if (areArraysEqual(message.rawData, EFFECT_OFF)) {
             console.log('=== Effect off');
             // isEffectOn = false;
+            outputs[outputIndex + 1].send(msbCoarseTune);
+            outputs[outputIndex + 1].send(lsbCoarseTune);
+            outputs[outputIndex + 1].send([0xB0, 0x06, 0x40]); // Tranpose 0 (absolute)
+            absoluteTransposeValue = 0;
+            transposeAllSequences(-transposeShift);
         }
     }
 });
@@ -299,7 +317,7 @@ inputs[inputIndex].onMidiEvent('channel voice message', (message: ChannelVoiceMe
             // NOTE_OFF message on Yamaha keyboards
             let foundNoteInMissingArray = false;
             for (let i = 0; i < missingNoteOffMessages.length; i++) {
-                if (missingNoteOffMessages[i].note !== (message as NoteOnMessage).note) {
+                if (missingNoteOffMessages[i].note - absoluteTransposeValue !== (message as NoteOnMessage).note) {
                     continue;
                 }
                 foundNoteInMissingArray = true;
@@ -315,7 +333,7 @@ inputs[inputIndex].onMidiEvent('channel voice message', (message: ChannelVoiceMe
         } else {
             // NOTE_ON message
             missingNoteOffMessages.push({
-                note: (message as NoteOnMessage).note,
+                note: (message as NoteOnMessage).note + absoluteTransposeValue,
                 sequenceNumber: sequenceCounter,
                 channel: recordingChannel
             });
@@ -328,8 +346,11 @@ inputs[inputIndex].onMidiEvent('channel voice message', (message: ChannelVoiceMe
     // TODO: what if we exceed 16 MIDI channels? --> Prevent TypeError (cannot read property of undefined)!!!
     // console.log('🎁🎁 Pushing Channel Voice Message');
     // console.log('pushing deltaTime: ' + (Date.now() - sequences[recordingChannel].sequenceStartTime));
+    const messageToSend = message.type as ChannelVoiceMessageType === ChannelVoiceMessageType.NOTE_ON
+        ? (message as NoteOnMessage).changeNote((message as NoteOnMessage).note + absoluteTransposeValue)
+        : message;
     sequences[recordingChannel].items.push({
-        message: message.changeChannel(recordingChannel),
+        message: messageToSend.changeChannel(recordingChannel),
         deltaTimeSequenceStart: Date.now() - sequences[recordingChannel].sequenceStartTime
     });
 });
@@ -465,6 +486,23 @@ function containsAnyNoteMessage(items: MidiLoopItem[]): boolean {
 function sendToOpenSongChannels(message: ChannelVoiceMessage): void {
     for (let i = recordingChannel; i <= 15; i++) { // 16 MIDI Channels
         outputs[outputIndex].send(message.changeChannel(i).getRawData());
+    }
+}
+
+/**
+ * 
+ * @param transposeValue range -24...0...+24
+ */
+function transposeAllSequences(transposeValue: number) {
+    for (let i = 0; i < sequences.length; i++) {
+        for (let j = 0; j < sequences[i].items.length; j++) {
+            const item: MidiLoopItem = sequences[i].items[j];
+            if (item.message.type !== ChannelVoiceMessageType.NOTE_ON) {
+                continue;
+            }
+            const noteOnMessage = item.message as NoteOnMessage;
+            sequences[i].items[j].message = noteOnMessage.changeNote(noteOnMessage.note + transposeValue);
+        }
     }
 }
 

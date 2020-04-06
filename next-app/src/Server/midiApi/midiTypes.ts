@@ -22,12 +22,15 @@ export class ChannelVoiceMessage extends MidiMessage {
     }
 
     public changeChannel(channel: number): ChannelVoiceMessage {
-        return Object.assign(this, {channel: channel}); // shallow copy
+        return Object.assign(this, { channel: channel }); // shallow copy
     }
 
     public getRawData(): number[] {
-        const statusByte: number = parseInt((this.type as ChannelVoiceMessageType).toString(16) + this.channel.toString(16), 16);
-        return [statusByte, ...this.dataBytes];
+        return [this.getStatusByte(), ...this.dataBytes];
+    }
+
+    private getStatusByte(): number {
+        return parseInt((this.type as ChannelVoiceMessageType).toString(16) + this.channel.toString(16), 16);
     }
 }
 
@@ -54,13 +57,17 @@ export class NoteOffMessage extends ChannelVoiceMessage {
 }
 
 export class NoteOnMessage extends ChannelVoiceMessage {
-    note: number;
-    attackVelocity: number;
+    readonly note: number;
+    readonly attackVelocity: number;
 
     constructor(channel: number, note: number, attackVelocity: number) {
         super(ChannelVoiceMessageType.NOTE_ON, channel, [note, attackVelocity]);
         this.note = note;
         this.attackVelocity = attackVelocity;
+    }
+
+    public changeNote(note: number): NoteOnMessage {
+        return new NoteOnMessage(this.channel, note, this.attackVelocity);
     }
 }
 
