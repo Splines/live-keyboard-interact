@@ -69,6 +69,10 @@ export class NoteOnMessage extends ChannelVoiceMessage {
     public changeNote(note: number): NoteOnMessage {
         return new NoteOnMessage(this.channel, note, this.attackVelocity);
     }
+
+    public changeVelocity(attackVelocity: number): NoteOnMessage {
+        return new NoteOnMessage(this.channel, this.note, attackVelocity);
+    }
 }
 
 export class PolyAftertouchMessage extends ChannelVoiceMessage {

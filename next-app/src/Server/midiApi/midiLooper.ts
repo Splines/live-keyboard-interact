@@ -325,6 +325,7 @@ inputs[inputIndex].onMidiEvent('channel voice message', (message: ChannelVoiceMe
                 if (response === NoteOffMessageHandlingResponse.UNHANDLED) {
                     return; // (!) we don't want to include this in the current sequence (see below)
                 }
+                break; // (!) we want to only remove one item from the missingNoteOffMessages, not multiple ones
             }
             if (!foundNoteInMissingArray && recording) {
                 console.error(`Encountered NOTE_OFF message that is not registered in the missingNoteOffMessages`);
@@ -418,6 +419,8 @@ function handlePotentiallyMissingNoteOffMessage(message: NoteOnMessage, missingI
                 found = true;
                 break;
             }
+            // directly mute note
+            // outputs[outputIndex].send(message.changeVelocity(0).changeChannel(missingItem.channel).getRawData());
             if (!found) {
                 console.error(`Missing item couldn't be found in the respective channel, so we can't remove the NOTE_ON message`);
                 return NoteOffMessageHandlingResponse.ERROR;
