@@ -326,11 +326,11 @@ inputs[inputIndex].onMidiEvent('channel voice message', (message: ChannelVoiceMe
                     return; // (!) we don't want to include this in the current sequence (see below)
                 }
             }
-            if (!foundNoteInMissingArray) {
+            if (!foundNoteInMissingArray && recording) {
                 console.error(`Encountered NOTE_OFF message that is not registered in the missingNoteOffMessages`);
                 return;
             }
-        } else {
+        } else if (recording) { // don't register NOTE_ON messages when we are not recording
             // NOTE_ON message
             missingNoteOffMessages.push({
                 note: (message as NoteOnMessage).note + absoluteTransposeValue,
