@@ -25,7 +25,7 @@
   },
   "homepage": "http://github.com/ordinateur-hack/tyros-reg-sheets",
   "dependencies": {
-    "async": "^3.1.0",
+    "async": "^3.2.2",
     "child_process": "^1.0.2",
     "fs": "0.0.1-security",
     "mustache": "^3.2.1"
