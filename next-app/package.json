@@ -10,7 +10,7 @@
     "express": "^4.17.1",
     "file-saver": "^2.0.2",
     "fs-extra": "^9.0.0",
-    "jszip": "^3.2.2",
+    "jszip": "^3.7.0",
     "midi": "^1.0.0",
     "next": "latest",
     "react": "latest",
